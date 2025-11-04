@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>청운초등학교 바이브코딩</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --text-color: #2c3e50;
+            --bg-color: #f4f7f6;
+            --card-bg-color: #ffffff;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+            transition: background-color 0.3s;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        h1 {
+            font-size: 2.5rem;
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+        }
+        h2 {
+            font-size: 1.5rem;
+            color: #555;
+            margin-top: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        #grade-selection {
+            display: flex;
+            justify-content: center;
+        }
+        #student-selection {
+            display: none; /* Initially hidden */
+            text-align: center; /* Center the back button */
+        }
+        .grid-container {
+            display: grid;
+            gap: 1.5rem;
+            width: 100%;
+            margin: 0 auto;
+        }
+        .grade-grid {
+            grid-template-columns: repeat(3, 1fr);
+            max-width: 600px;
+        }
+        .student-grid {
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            max-width: 900px;
+        }
+        .button-card {
+            background-color: var(--card-bg-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: var(--text-color);
+            font-weight: 600;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 120px;
+            cursor: pointer;
+        }
+        .button-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            color: var(--primary-color);
+        }
+        .back-button {
+            display: inline-block;
+            margin-bottom: 2rem;
+            padding: 0.5rem 1.5rem;
+            background-color: var(--primary-color);
+            color: #fff;
+            border-radius: 5px;
+            text-decoration: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        footer {
+            text-align: center;
+            margin-top: 4rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e0e0e0;
+            color: #777;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .grade-grid {
+                grid-template-columns: repeat(2, 1fr);
+                max-width: 400px;
+            }
+            .student-grid {
+                grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            }
+            h1 { font-size: 2rem; }
+            h2 { font-size: 1.2rem; }
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 1rem; }
+            .grade-grid {
+                grid-template-columns: 1fr;
+                max-width: 200px;
+            }
+            .student-grid {
+                grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+                gap: 1rem;
+            }
+            .button-card {
+                font-size: 1.2rem;
+                height: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 id="main-title">청운초등학교</h1>
+        <h2 id="sub-title">학년을 선택하세요</h2>
+    </header>
+
+    <main class="container">
+        <!-- Grade Selection View -->
+        <div id="grade-selection">
+            <div class="grid-container grade-grid">
+                <div class="button-card" data-grade="1">1학년</div>
+                <div class="button-card" data-grade="2">2학년</div>
+                <div class="button-card" data-grade="3">3학년</div>
+                <div class="button-card" data-grade="4">4학년</div>
+                <div class="button-card" data-grade="5">5학년</div>
+                <div class="button-card" data-grade="6">6학년</div>
+            </div>
+        </div>
+
+        <!-- Student Selection View -->
+        <div id="student-selection">
+            <div class="back-button">뒤로가기</div>
+            <div id="student-grid" class="grid-container student-grid">
+                <!-- Student links will be inserted here by JavaScript -->
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 Vibe Coding. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // --- 학생 이름 설정 ---
+        // 아래 목록에서 각 학년의 학생 이름을 수정할 수 있습니다.
+        // 각 학년마다 15명의 학생 이름을 순서대로 입력해주세요.
+        const studentNames = {
+            "1": [
+                "학생 1", "학생 2", "학생 3", "학생 4", "학생 5",
+                "학생 6", "학생 7", "학생 8", "학생 9", "학생 10",
+                "학생 11", "학생 12", "학생 13", "학생 14", "학생 15"
+            ],
+            "2": [
+                "학생 1", "학생 2", "학생 3", "학생 4", "학생 5",
+                "학생 6", "학생 7", "학생 8", "학생 9", "학생 10",
+                "학생 11", "학생 12", "학생 13", "학생 14", "학생 15"
+            ],
+            "3": [
+                "학생 1", "학생 2", "학생 3", "학생 4", "학생 5",
+                "학생 6", "학생 7", "학생 8", "학생 9", "학생 10",
+                "학생 11", "학생 12", "학생 13", "학생 14", "학생 15"
+            ],
+            "4": [
+                "학생 1", "학생 2", "학생 3", "학생 4", "학생 5",
+                "학생 6", "학생 7", "학생 8", "학생 9", "학생 10",
+                "학생 11", "학생 12", "학생 13", "학생 14", "학생 15"
+            ],
+            "5": [
+                "학생 1", "학생 2", "학생 3", "학생 4", "학생 5",
+                "학생 6", "학생 7", "학생 8", "학생 9", "학생 10",
+                "학생 11", "학생 12", "학생 13", "학생 14", "학생 15"
+            ],
+            "6": [
+                "학생 1", "학생 2", "학생 3", "학생 4", "학생 5",
+                "학생 6", "학생 7", "학생 8", "학생 9", "학생 10",
+                "학생 11", "학생 12", "학생 13", "학생 14", "학생 15"
+            ]
+        };
+        // --- 설정 끝 ---
+
+        const gradeSelectionView = document.getElementById('grade-selection');
+        const studentSelectionView = document.getElementById('student-selection');
+        const studentGrid = document.getElementById('student-grid');
+        const mainTitle = document.getElementById('main-title');
+        const subTitle = document.getElementById('sub-title');
+        const backButton = studentSelectionView.querySelector('.back-button');
+
+        gradeSelectionView.addEventListener('click', function(e) {
+            if (e.target && e.target.matches('.button-card')) {
+                const selectedGrade = e.target.dataset.grade;
+                showStudentSelection(selectedGrade);
+            }
+        });
+
+        backButton.addEventListener('click', function() {
+            showGradeSelection();
+        });
+
+        function showStudentSelection(grade) {
+            studentGrid.innerHTML = '';
+            const names = studentNames[grade] || [];
+            
+            names.forEach((name, index) => {
+                const studentNumber = index + 1;
+                const studentLink = document.createElement('a');
+                studentLink.href = `./${grade}/student${studentNumber}/index.html`;
+                studentLink.className = 'button-card';
+                studentLink.textContent = name;
+                studentGrid.appendChild(studentLink);
+            });
+
+            mainTitle.textContent = `${grade}학년 작품`;
+            subTitle.textContent = '학생을 선택하세요';
+            gradeSelectionView.style.display = 'none';
+            studentSelectionView.style.display = 'block';
+        }
+
+        function showGradeSelection() {
+            mainTitle.textContent = '청운초등학교';
+            subTitle.textContent = '학년을 선택하세요';
+            studentSelectionView.style.display = 'none';
+            gradeSelectionView.style.display = 'flex';
+        }
+
+        showGradeSelection();
+    </script>
+
+</body>
+</html>
