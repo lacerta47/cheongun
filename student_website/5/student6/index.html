@@ -1,1 +1,249 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+<title>좀비 피하기</title>
+<style>
+    body {
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: #f0f0f0;
+    }
+    #game-container {
+        position: relative;
+        width: 800px;
+        height: 600px;
+        border: 2px solid black;
+        background-color: #a0a0a0;
+        overflow: hidden;
+    }
+    #player {
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        background-color: blue;
+        border-radius: 50%;
+    }
+    .zombie {
+        position: absolute;
+        width: 25px;
+        height: 25px;
+        background-color: red;
+        border-radius: 50%;
+    }
+    .item {
+        position: absolute;
+        width: 15px;
+        height: 15px;
+        background-color: yellow;
+    }
+    #score-board {
+        margin-top: 10px;
+        font-size: 24px;
+    }
+    #difficulty-selector {
+        margin-bottom: 10px;
+    }
+</style>
+</head>
+<body>
+
+<h1>좀비 피하기</h1>
+<div id="difficulty-selector">
+    <label for="difficulty">난이도 선택:</label>
+    <select id="difficulty">
+        <option value="easy">쉬움</option>
+        <option value="normal">보통</option>
+        <option value="hard">어려움</option>
+    </select>
+    <button id="start-button">게임 시작</button>
+</div>
+<div id="game-container">
+    <div id="player"></div>
+</div>
+<div id="score-board">모은 아이템: 0 / 5</div>
+
+<script>
+    const gameContainer = document.getElementById('game-container');
+    const player = document.getElementById('player');
+    const scoreBoard = document.getElementById('score-board');
+    const startButton = document.getElementById('start-button');
+    const difficultySelector = document.getElementById('difficulty');
+
+    let playerX = 390;
+    let playerY = 290;
+    let speed = 5;
+    let score = 0;
+    let zombies = [];
+    let items = [];
+    let gameInterval;
+
+    const keys = {
+        ArrowUp: false,
+        ArrowDown: false,
+        ArrowLeft: false,
+        ArrowRight: false,
+        Shift: false
+    };
+
+    function updatePlayerPosition() {
+        let currentSpeed = keys.Shift ? speed * 2 : speed;
+        if (keys.ArrowUp) playerY -= currentSpeed;
+        if (keys.ArrowDown) playerY += currentSpeed;
+        if (keys.ArrowLeft) playerX -= currentSpeed;
+        if (keys.ArrowRight) playerX += currentSpeed;
+
+        // Keep player within bounds
+        if (playerX < 0) playerX = 0;
+        if (playerX > 780) playerX = 780;
+        if (playerY < 0) playerY = 0;
+        if (playerY > 580) playerY = 580;
+
+        player.style.left = playerX + 'px';
+        player.style.top = playerY + 'px';
+    }
+
+    function createZombie() {
+        const zombie = document.createElement('div');
+        zombie.classList.add('zombie');
+        let x = Math.random() * 775;
+        let y = Math.random() * 575;
+        // Ensure zombies don't spawn too close to the player's start
+        while (Math.sqrt((x - 390)**2 + (y - 290)**2) < 100) {
+            x = Math.random() * 775;
+            y = Math.random() * 575;
+        }
+        zombie.style.left = x + 'px';
+        zombie.style.top = y + 'px';
+        zombie.dx = (Math.random() - 0.5) * 2; // x direction
+        zombie.dy = (Math.random() - 0.5) * 2; // y direction
+        gameContainer.appendChild(zombie);
+        zombies.push(zombie);
+    }
+
+    function moveZombies() {
+        zombies.forEach(zombie => {
+            let x = parseFloat(zombie.style.left);
+            let y = parseFloat(zombie.style.top);
+
+            x += zombie.dx;
+            y += zombie.dy;
+
+            if (x <= 0 || x >= 775) zombie.dx *= -1;
+            if (y <= 0 || y >= 575) zombie.dy *= -1;
+
+            zombie.style.left = x + 'px';
+            zombie.style.top = y + 'px';
+        });
+    }
+
+    function createItem() {
+        const item = document.createElement('div');
+        item.classList.add('item');
+        item.style.left = Math.random() * 785 + 'px';
+        item.style.top = Math.random() * 585 + 'px';
+        gameContainer.appendChild(item);
+        items.push(item);
+    }
+
+    function checkCollisions() {
+        // Zombie collision
+        zombies.forEach(zombie => {
+            const zRect = zombie.getBoundingClientRect();
+            const pRect = player.getBoundingClientRect();
+            if (!(pRect.right < zRect.left || pRect.left > zRect.right || pRect.bottom < zRect.top || pRect.top > zRect.bottom)) {
+                gameOver('좀비에게 잡혔습니다!');
+            }
+        });
+
+        // Item collision
+        items.forEach((item, index) => {
+            const iRect = item.getBoundingClientRect();
+            const pRect = player.getBoundingClientRect();
+            if (!(pRect.right < iRect.left || pRect.left > iRect.right || pRect.bottom < iRect.top || pRect.top > iRect.bottom)) {
+                item.remove();
+                items.splice(index, 1);
+                score++;
+                updateScore();
+                if (score >= 5) {
+                    gameOver('탈출 성공! 모든 아이템을 모았습니다.');
+                }
+            }
+        });
+    }
+
+    function updateScore() {
+        scoreBoard.textContent = `모은 아이템: ${score} / 5`;
+    }
+
+    function gameOver(message) {
+        clearInterval(gameInterval);
+        alert(message);
+        resetGame();
+    }
+    
+    function resetGame() {
+        // Clear existing elements
+        zombies.forEach(z => z.remove());
+        items.forEach(i => i.remove());
+        zombies = [];
+        items = [];
+
+        // Reset player and score
+        playerX = 390;
+        playerY = 290;
+        player.style.left = playerX + 'px';
+        player.style.top = playerY + 'px';
+        score = 0;
+        updateScore();
+        
+        // Make start button available again
+        startButton.disabled = false;
+        difficultySelector.disabled = false;
+    }
+
+    function gameLoop() {
+        updatePlayerPosition();
+        moveZombies();
+        checkCollisions();
+    }
+
+    function startGame() {
+        resetGame();
+        startButton.disabled = true;
+        difficultySelector.disabled = true;
+
+        const difficulty = difficultySelector.value;
+        let zombieCount = 0;
+        if (difficulty === 'easy') {
+            zombieCount = 5;
+        } else if (difficulty === 'normal') {
+            zombieCount = 10;
+        } else if (difficulty === 'hard') {
+            zombieCount = 15;
+        }
+
+        for (let i = 0; i < zombieCount; i++) {
+            createZombie();
+        }
+        for (let i = 0; i < 5; i++) {
+            createItem();
+        }
+
+        gameInterval = setInterval(gameLoop, 20);
+    }
+
+    startButton.addEventListener('click', startGame);
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key in keys) keys[e.key] = true;
+    });
+    window.addEventListener('keyup', (e) => {
+        if (e.key in keys) keys[e.key] = false;
+    });
+
+</script>
+
+</body>
+</html>
