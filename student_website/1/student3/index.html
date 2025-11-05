@@ -1,1 +1,412 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나만의 달리기 게임</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Nanum Gothic', 'Arial', sans-serif;
+            background-color: #f7f7f7;
+            color: #333;
+            overflow: hidden;
+        }
+        #gameContainer {
+            position: relative;
+            width: 800px;
+            height: 250px;
+        }
+        canvas {
+            border-bottom: 3px solid #333;
+            box-sizing: border-box;
+        }
+        #scoreDisplay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            border-radius: 15px;
+        }
+        .screen h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+        .screen p {
+            font-size: 1.2em;
+        }
+        .screen button {
+            background-color: #87ceeb;
+            color: #fff;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.5em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 20px;
+        }
+        .screen button:hover {
+            background-color: #66b2d8;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="gameContainer">
+        <div id="startScreen" class="screen">
+            <h1>달리기 게임</h1>
+            <p>캐릭터: 자동차 | 테마: 사막(낮)</p>
+            <p>스페이스바 또는 화면 터치로 점프!</p>
+            <button id="startButton">게임 시작</button>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+        <div id="scoreDisplay">점수: <span id="score">0</span></div>
+
+        <div id="gameOverScreen" class="screen" style="display: none;">
+            <h1>게임 오버!</h1>
+            <p>최종 점수: <span id="finalScore">0</span></p>
+            <button id="restartButton">다시 시작</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const finalScoreElement = document.getElementById('finalScore');
+        const gameContainer = document.getElementById('gameContainer');
+
+        canvas.width = gameContainer.offsetWidth;
+        canvas.height = gameContainer.offsetHeight;
+
+        // --- 게임 설정 ---
+        const CHARACTER = '자동차';
+        const CHAR_COLOR = 'yellow';
+        const OBSTACLE_TYPE = '도로 장애물';
+        const JUMP_POWER = -10;
+        const THEME = { bg: '#f7f7f7', fg: '#333', obs: '#538543' };
+        let gameSpeed = 4;
+        const INITIAL_SPEED = 4;
+        const MAX_SPEED = INITIAL_SPEED * 2.5;
+        
+        let player, obstacles, score, gameState, frameCount;
+
+        // --- 오디오 설정 ---
+        let audioCtx;
+        let bgmInterval;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playNote(frequency, duration, type = 'square') {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration / 1000);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration / 1000);
+        }
+
+        function playJumpSound() { playNote(440, 100, 'sine'); }
+        function playScoreSound() { playNote(587.33, 50, 'sine'); }
+        function playGameOverSound() {
+            playNote(200, 150, 'triangle');
+            setTimeout(() => playNote(150, 200, 'triangle'), 150);
+        }
+
+        const bgmNotes = [261.63, 329.63, 392.00, 329.63]; // C4, E4, G4, E4
+        let bgmNoteIndex = 0;
+
+        function playBGM() {
+            if (gameState !== 'playing') return;
+            const note = bgmNotes[bgmNoteIndex % bgmNotes.length];
+            playNote(note, 150, 'sawtooth');
+            bgmNoteIndex++;
+            bgmInterval = setTimeout(playBGM, 300);
+        }
+
+        function stopBGM() {
+            clearTimeout(bgmInterval);
+        }
+
+        // --- 그리기 함수들 ---
+        function drawPlayer(p) {
+            ctx.fillStyle = CHAR_COLOR;
+            ctx.beginPath();
+            if (CHARACTER === '로봇') { // Robot with dot face
+                ctx.rect(p.x, p.y, p.width, p.height); // Body
+                ctx.rect(p.x - 5, p.y + 5, 5, 20); // Left Arm
+                ctx.rect(p.x + p.width, p.y + 5, 5, 20); // Right Arm
+                ctx.rect(p.x + p.width/2 - 15, p.y - 15, 30, 15); // Head
+                ctx.fill();
+                ctx.fillStyle = THEME.fg;
+                ctx.beginPath();
+                ctx.arc(p.x + p.width/2 - 7, p.y - 8, 2, 0, Math.PI * 2);
+                ctx.arc(p.x + p.width/2 + 7, p.y - 8, 2, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (CHARACTER === '펭귄') { // Penguin
+                ctx.ellipse(p.x + p.width / 2, p.y + p.height / 2, p.width / 2, p.height / 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.ellipse(p.x + p.width / 2, p.y + p.height / 2, p.width / 3, p.height / 3, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'orange';
+                ctx.beginPath();
+                ctx.moveTo(p.x + p.width, p.y + p.height/2 - 5);
+                ctx.lineTo(p.x + p.width + 10, p.y + p.height/2);
+                ctx.lineTo(p.x + p.width, p.y + p.height/2 + 5);
+                ctx.fill();
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(p.x + p.width - 2, p.y + p.height/2 - 5, 2, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (CHARACTER === '병아리') { // Chick
+                ctx.ellipse(p.x + p.width / 2, p.y + p.height / 2, p.width / 2 + 3, p.height / 2, 0, 0, Math.PI * 2);
+                ctx.ellipse(p.x + p.width / 2, p.y - p.height / 4, p.width / 2, p.width / 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'orange';
+                ctx.beginPath();
+                ctx.moveTo(p.x + p.width - 2, p.y - p.height / 4);
+                ctx.lineTo(p.x + p.width + 5, p.y - p.height / 4 + 3);
+                ctx.lineTo(p.x + p.width - 2, p.y - p.height / 4 + 6);
+                ctx.closePath();
+                ctx.fill();
+            } else { // '자동차'
+                ctx.rect(p.x, p.y + 10, p.width, p.height - 10);
+                ctx.rect(p.x + 5, p.y, p.width - 10, 10);
+                ctx.fill();
+                ctx.fillStyle = '#333';
+                ctx.beginPath();
+                ctx.ellipse(p.x + 10, p.y + p.height, 6, 6, 0, 0, Math.PI * 2);
+                ctx.ellipse(p.x + p.width - 10, p.y + p.height, 6, 6, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawObstacle(obs) {
+            ctx.fillStyle = THEME.obs;
+            ctx.beginPath();
+            if (OBSTACLE_TYPE === '에너지 드럼') {
+                ctx.ellipse(obs.x + obs.width/2, obs.y + obs.height - obs.width/4, obs.width/2, obs.width/4, 0, 0, Math.PI*2);
+                ctx.rect(obs.x, obs.y, obs.width, obs.height - obs.width/4);
+                ctx.ellipse(obs.x + obs.width/2, obs.y, obs.width/2, obs.width/4, 0, 0, Math.PI*2);
+            } else if (OBSTACLE_TYPE === '얼음 조각') {
+                ctx.moveTo(obs.x, obs.y + obs.height);
+                ctx.lineTo(obs.x + obs.width / 2, obs.y);
+                ctx.lineTo(obs.x + obs.width, obs.y + obs.height);
+                ctx.closePath();
+            } else if (OBSTACLE_TYPE === '벌레') {
+                ctx.ellipse(obs.x + obs.width / 2, obs.y + obs.height / 2, obs.width / 2, obs.height / 2, 0, 0, Math.PI * 2);
+                ctx.rect(obs.x, obs.y - 5, 2, 5);
+                ctx.rect(obs.x + obs.width - 2, obs.y - 5, 2, 5);
+            } else { // '도로 장애물'
+                ctx.moveTo(obs.x, obs.y + obs.height);
+                ctx.lineTo(obs.x + obs.width / 2, obs.y);
+                ctx.lineTo(obs.x + obs.width, obs.y + obs.height);
+                ctx.closePath();
+            }
+            ctx.fill();
+        }
+
+        // --- 게임 로직 ---
+        function resetGame() {
+            initAudio();
+            stopBGM();
+            bgmNoteIndex = 0;
+
+            player = {
+                width: 40, height: 40,
+                x: 50, y: canvas.height - 40,
+                yVelocity: 0, isJumping: false
+            };
+            if (CHARACTER === '자동차') {
+                player.width = 50;
+                player.height = 25;
+                player.y = canvas.height - player.height;
+            } else if (CHARACTER === '병아리') {
+                player.width = 25;
+                player.height = 25;
+                player.y = canvas.height - player.height;
+            } else if (CHARACTER === '펭귄') {
+                player.width = 30;
+                player.height = 40;
+                player.y = canvas.height - player.height;
+            }
+            
+            obstacles = [];
+            score = 0;
+            frameCount = 0;
+            gameSpeed = INITIAL_SPEED;
+            gameState = 'playing';
+
+            spawnObstacle();
+            
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            canvas.style.display = 'block';
+            scoreElement.textContent = 0;
+
+            playBGM();
+            loop();
+        }
+
+        let nextObstacleFrame;
+
+        function spawnObstacle() {
+            let obsHeight = 30 + Math.random() * 25;
+            let obsWidth = 15 + Math.random() * 10;
+            
+            let newObstacle = {
+                width: obsWidth, height: obsHeight,
+                x: canvas.width, y: canvas.height - obsHeight
+            };
+            
+            if (OBSTACLE_TYPE === '도로 장애물') {
+                newObstacle.height = 40;
+                newObstacle.y = canvas.height - newObstacle.height;
+            } else if (OBSTACLE_TYPE === '벌레') {
+                newObstacle.width = 20;
+                newObstacle.height = 10;
+                newObstacle.y = canvas.height - newObstacle.height;
+            } else if (OBSTACLE_TYPE === '에너지 드럼') {
+                newObstacle.width = 30;
+                newObstacle.height = 45;
+                newObstacle.y = canvas.height - newObstacle.height;
+            } else if (OBSTACLE_TYPE === '얼음 조각') {
+                newObstacle.width = 25;
+                newObstacle.height = 25;
+                newObstacle.y = canvas.height - newObstacle.height;
+            }
+
+            obstacles.push(newObstacle);
+            nextObstacleFrame = frameCount + (120 - gameSpeed * 5) + Math.floor(Math.random() * 60);
+        }
+
+        function update() {
+            if (gameState !== 'playing') return;
+
+            frameCount++;
+            
+            player.y += player.yVelocity;
+            if (player.y < canvas.height - player.height) {
+                player.yVelocity += 0.5; // Gravity
+            } else {
+                player.y = canvas.height - player.height;
+                player.yVelocity = 0;
+                if (player.isJumping) {
+                    player.isJumping = false;
+                }
+            }
+
+            if (frameCount >= nextObstacleFrame) {
+                spawnObstacle();
+            }
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                obs.x -= gameSpeed;
+
+                if (obs.x + obs.width < 0) {
+                    obstacles.splice(i, 1);
+                    score++;
+                    scoreElement.textContent = score;
+                    playScoreSound();
+                }
+
+                if (
+                    player.x < obs.x + obs.width &&
+                    player.x + player.width > obs.x &&
+                    player.y < obs.y + obs.height &&
+                    player.y + player.height > obs.y
+                ) {
+                    gameState = 'gameover';
+                    stopBGM();
+                    playGameOverSound();
+                    finalScoreElement.textContent = score;
+                    gameOverScreen.style.display = 'flex';
+                    return;
+                }
+            }
+            
+            if (gameSpeed < MAX_SPEED) {
+                gameSpeed += 0.002;
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer(player);
+            obstacles.forEach(drawObstacle);
+        }
+
+        function loop() {
+            if (gameState === 'gameover') return;
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        function jump() {
+            if (!player.isJumping && gameState === 'playing') {
+                player.yVelocity = JUMP_POWER;
+                player.isJumping = true;
+                playJumpSound();
+            }
+        }
+
+        function handleInteraction(e) {
+            if (gameState === 'playing') {
+                e.preventDefault();
+                jump();
+            }
+        }
+
+        document.addEventListener('keydown', e => { if (e.code === 'Space') handleInteraction(e); });
+        canvas.addEventListener('touchstart', handleInteraction);
+        
+        startButton.addEventListener('click', () => {
+            resetGame();
+        });
+
+        restartButton.addEventListener('click', () => {
+            resetGame();
+        });
+
+    </script>
+</body>
+</html>

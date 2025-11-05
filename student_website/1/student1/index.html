@@ -1,1 +1,329 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나만의 탄막 피하기 게임</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #1a1a2e;
+            font-family: 'Nanum Gothic', 'Arial', sans-serif;
+            color: #e0e1dd;
+        }
+        #gameContainer {
+            position: relative;
+            width: 600px;
+            height: 600px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.2);
+        }
+        canvas {
+            background-color: #0f0f1a;
+            display: block;
+        }
+        #scoreDisplay {
+            position: absolute;
+            top: 15px;
+            left: 20px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #e0e1dd;
+            text-shadow: 0 0 5px #ffffff;
+        }
+        .screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(26, 26, 46, 0.85);
+            backdrop-filter: blur(5px);
+        }
+        .screen h1 {
+            font-size: 3.5em;
+            margin-bottom: 15px;
+            color: #ffffff;
+            text-shadow: 0 0 15px #00ffff;
+        }
+        .screen p {
+            font-size: 1.3em;
+            margin-bottom: 25px;
+            color: #e0e1dd;
+        }
+        .screen button {
+            background: linear-gradient(45deg, #00ffff, #1d5d9b);
+            color: #ffffff;
+            border: none;
+            padding: 15px 35px;
+            font-size: 1.6em;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px #00ffff;
+        }
+        .screen button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 25px #00ffff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="gameContainer">
+        <div id="startScreen" class="screen">
+            <h1>탄막 피하기</h1>
+            <p>화살표 키로 탄막을 피하며 최대한 오래 생존하세요!</p>
+            <button id="startButton">게임 시작</button>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+        <div id="scoreDisplay" style="display: none;">생존 시간: <span id="survivalTime">0</span>초</div>
+
+        <div id="gameOverScreen" class="screen" style="display: none;">
+            <h1>게임 오버</h1>
+            <p>최종 생존 시간: <span id="finalSurvivalTime">0</span>초</p>
+            <button id="restartButton">다시 시작</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameContainer = document.getElementById('gameContainer');
+        
+        canvas.width = gameContainer.offsetWidth;
+        canvas.height = gameContainer.offsetHeight;
+
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const survivalTimeElement = document.getElementById('survivalTime');
+        const finalSurvivalTimeElement = document.getElementById('finalSurvivalTime');
+
+        // --- Game Settings ---
+        const PLAYER_SPEED = 7;
+        const BULLET_SHAPE = 'square';
+        const BULLET_COLOR = 'red';
+        const BULLET_SPEED = 1;
+        const SPAWN_FREQUENCY = 285;
+
+        let player, bullets, score, gameState, gameLoopId, bulletSpawnInterval;
+        
+        let keys = {
+            ArrowUp: false,
+            ArrowDown: false,
+            ArrowLeft: false,
+            ArrowRight: false
+        };
+
+        // --- Sound Engine ---
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+        function playTone(freq, duration, type = 'sine', volume = 0.1) {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+        const playHitSound = () => { playTone(120, 0.3, 'sawtooth', 0.2); };
+        const playScoreSound = () => { playTone(880, 0.05, 'square'); };
+        // --- End Sound Engine ---
+
+        function resetGame() {
+            initAudio();
+            
+            player = {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                size: 15,
+                color: '#00ffff'
+            };
+            bullets = [];
+            score = 0;
+            gameState = 'playing';
+
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            scoreDisplay.style.display = 'block';
+            survivalTimeElement.textContent = 0;
+
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            if (bulletSpawnInterval) clearInterval(bulletSpawnInterval);
+            
+            bulletSpawnInterval = setInterval(spawnBullet, SPAWN_FREQUENCY);
+            loop();
+        }
+
+        function loop() {
+            if (gameState !== 'playing') return;
+
+            update();
+            draw();
+            
+            gameLoopId = requestAnimationFrame(loop);
+        }
+
+        function update() {
+            updatePlayer();
+            updateBullets();
+            checkCollisions();
+            
+            score += 1 / 60;
+            survivalTimeElement.textContent = Math.floor(score);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawPlayer();
+            bullets.forEach(drawBullet);
+        }
+
+        function updatePlayer() {
+            if (keys.ArrowUp) player.y -= PLAYER_SPEED;
+            if (keys.ArrowDown) player.y += PLAYER_SPEED;
+            if (keys.ArrowLeft) player.x -= PLAYER_SPEED;
+            if (keys.ArrowRight) player.x += PLAYER_SPEED;
+
+            player.x = Math.max(player.size / 2, Math.min(canvas.width - player.size / 2, player.x));
+            player.y = Math.max(player.size / 2, Math.min(canvas.height - player.size / 2, player.y));
+        }
+
+        function drawPlayer() {
+            ctx.fillStyle = player.color;
+            ctx.shadowColor = player.color;
+            ctx.shadowBlur = 15;
+            ctx.fillRect(player.x - player.size / 2, player.y - player.size / 2, player.size, player.size);
+            ctx.shadowBlur = 0;
+        }
+
+        function spawnBullet() {
+            let startX, startY, dx, dy;
+            const bulletSize = 15;
+            const speed = BULLET_SPEED;
+            const side = Math.floor(Math.random() * 4);
+
+            if (side === 0) { // Top
+                startX = Math.random() * canvas.width;
+                startY = -bulletSize;
+                const angle = Math.atan2(player.y - startY, player.x - startX);
+                dx = Math.cos(angle) * speed;
+                dy = Math.sin(angle) * speed;
+            } else if (side === 1) { // Right
+                startX = canvas.width + bulletSize;
+                startY = Math.random() * canvas.height;
+                const angle = Math.atan2(player.y - startY, player.x - startX);
+                dx = Math.cos(angle) * speed;
+                dy = Math.sin(angle) * speed;
+            } else if (side === 2) { // Bottom
+                startX = Math.random() * canvas.width;
+                startY = canvas.height + bulletSize;
+                const angle = Math.atan2(player.y - startY, player.x - startX);
+                dx = Math.cos(angle) * speed;
+                dy = Math.sin(angle) * speed;
+            } else { // Left
+                startX = -bulletSize;
+                startY = Math.random() * canvas.height;
+                const angle = Math.atan2(player.y - startY, player.x - startX);
+                dx = Math.cos(angle) * speed;
+                dy = Math.sin(angle) * speed;
+            }
+
+            bullets.push({ x: startX, y: startY, dx, dy, size: bulletSize, color: BULLET_COLOR, shape: BULLET_SHAPE });
+        }
+
+        function updateBullets() {
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                let b = bullets[i];
+                b.x += b.dx;
+                b.y += b.dy;
+
+                if (b.x < -b.size || b.x > canvas.width + b.size || b.y < -b.size || b.y > canvas.height + b.size) {
+                    bullets.splice(i, 1);
+                }
+            }
+        }
+        
+        function drawBullet(b) {
+            ctx.fillStyle = b.color;
+            ctx.shadowColor = b.color;
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            if (b.shape === 'square') {
+                ctx.rect(b.x - b.size / 2, b.y - b.size / 2, b.size, b.size);
+            } else if (b.shape === 'circle') {
+                ctx.arc(b.x, b.y, b.size / 2, 0, Math.PI * 2);
+            } else if (b.shape === 'triangle') {
+                ctx.moveTo(b.x, b.y - b.size / 2);
+                ctx.lineTo(b.x + b.size / 2, b.y + b.size / 2);
+                ctx.lineTo(b.x - b.size / 2, b.y + b.size / 2);
+                ctx.closePath();
+            } else if (b.shape === 'diamond') {
+                ctx.moveTo(b.x, b.y - b.size / 2);
+                ctx.lineTo(b.x + b.size / 2, b.y);
+                ctx.lineTo(b.x, b.y + b.size / 2);
+                ctx.lineTo(b.x - b.size / 2, b.y);
+                ctx.closePath();
+            }
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        function checkCollisions() {
+            for (let b of bullets) {
+                const dist = Math.hypot(player.x - b.x, player.y - b.y);
+                if (dist < player.size / 2 + b.size / 2) {
+                    gameOver();
+                    return;
+                }
+            }
+        }
+
+        function gameOver() {
+            playHitSound();
+            gameState = 'gameover';
+            clearInterval(bulletSpawnInterval);
+            finalSurvivalTimeElement.textContent = Math.floor(score);
+            gameOverScreen.style.display = 'flex';
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key in keys) keys[e.key] = true;
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key in keys) keys[e.key] = false;
+        });
+
+        startButton.addEventListener('click', resetGame);
+        restartButton.addEventListener('click', resetGame);
+
+    </script>
+</body>
+</html>
