@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지박소년 하나코</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        #game-container {
+            width: 800px;
+            height: 600px;
+            border: 2px solid #333;
+            background: linear-gradient(to bottom, #87CEEB, #f0f8ff);
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        #player {
+            width: 50px;
+            height: 50px;
+            background-color: #ff6347; /* Placeholder for Hanako-kun */
+            position: absolute;
+            bottom: 10px;
+            left: 375px;
+            border-radius: 5px;
+        }
+        .enemy {
+            width: 40px;
+            height: 40px;
+            background-color: #800080; /* Placeholder for enemy */
+            position: absolute;
+            border-radius: 50%;
+        }
+        #reset-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        #controls {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>지박소년 하나코</h1>
+    <div id="game-container"></div>
+    <div id="controls">이동: W, A, S, D | 공격: 스페이스바</div>
+    <button id="reset-button">초기화</button>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const resetButton = document.getElementById('reset-button');
+
+        let player;
+        let enemies = [];
+        let keys = {};
+
+        function createPlayer() {
+            const playerElement = document.createElement('div');
+            playerElement.id = 'player';
+            gameContainer.appendChild(playerElement);
+            return {
+                element: playerElement,
+                x: 375,
+                y: 540, // Positioned at the bottom
+                speed: 5
+            };
+        }
+
+        function createEnemy() {
+            const enemyElement = document.createElement('div');
+            enemyElement.className = 'enemy';
+            gameContainer.appendChild(enemyElement);
+            const enemy = {
+                element: enemyElement,
+                x: Math.random() * 760,
+                y: -40, // Start above the screen
+                speed: Math.random() * 2 + 1
+            };
+            enemies.push(enemy);
+        }
+
+        function updateGame() {
+            // Player movement
+            if (keys['w'] && player.y > 0) player.y -= player.speed;
+            if (keys['s'] && player.y < 550) player.y += player.speed;
+            if (keys['a'] && player.x > 0) player.x -= player.speed;
+            if (keys['d'] && player.x < 750) player.x += player.speed;
+
+            player.element.style.left = player.x + 'px';
+            player.element.style.top = player.y + 'px';
+
+            // Move enemies
+            enemies.forEach((enemy, index) => {
+                enemy.y += enemy.speed;
+                if (enemy.y > 600) {
+                    enemy.element.remove();
+                    enemies.splice(index, 1);
+                }
+                enemy.element.style.left = enemy.x + 'px';
+                enemy.element.style.top = enemy.y + 'px';
+            });
+
+            requestAnimationFrame(updateGame);
+        }
+
+        function attack() {
+            const attackRange = 50;
+            enemies.forEach((enemy, index) => {
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < attackRange) {
+                    enemy.element.remove();
+                    enemies.splice(index, 1);
+                }
+            });
+        }
+
+        function startGame() {
+            gameContainer.innerHTML = '';
+            player = createPlayer();
+            enemies = [];
+            keys = {};
+
+            // Spawn enemies periodically
+            setInterval(createEnemy, 2000);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === ' ') {
+                attack();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        resetButton.addEventListener('click', startGame);
+
+        // Initial start
+        startGame();
+        updateGame();
+
+    </script>
+</body>
+</html>
