@@ -1,1 +1,252 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>나만의 블록쌓기 게임</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: lightskyblue;
+            font-family: 'Arial', sans-serif;
+            color: white;
+        }
+        #gameCanvas {
+            background-color: #333;
+            border: 2px solid white;
+        }
+        #startScreen, #gameOverScreen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background-color: #222;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+        button {
+            background-color: #0ff;
+            color: #333;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.5em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        button:hover { background-color: #0cc; }
+    </style>
+</head>
+<body>
+    <div id="startScreen">
+        <h1>나만의 블록쌓기 게임</h1>
+        <p>스페이스바를 눌러 블록을 쌓아보세요!</p>
+        <button id="startButton">게임 시작</button>
+    </div>
+
+    <h1 id="gameTitle" style="display: none;">블록쌓기 게임</h1>
+    <canvas id="gameCanvas" style="display: none;"></canvas>
+    <p id="scoreDisplay" style="display: none;">Score: <span id="score">0</span></p>
+    
+    <div id="gameOverScreen" style="display: none;">
+        <h1>게임 오버!</h1>
+        <p>점수: <span id="finalScore">0</span></p>
+        <button id="restartButton">다시 시작</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+
+        canvas.width = 400;
+        canvas.height = 600;
+
+        let score = 0;
+        let blocks = [];
+        let currentBlock;
+        let gameState = 'waiting'; // waiting, playing, gameover
+
+        const BLOCK_HEIGHT = 20;
+        const BLOCK_COLOR = '무지개';
+        const RAINBOW_COLORS = ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"];
+
+        // --- Sound Engine ---
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+        function playTone(freq, duration, type = 'sine') {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+        const playStackSound = () => { playTone(440, 0.1, 'square'); };
+        const playGameOverSound = () => { playTone(164, 0.5, 'sawtooth'); };
+        // --- End Sound Engine ---
+
+        function getBlockColor() {
+            if (BLOCK_COLOR === '무지개') {
+                return RAINBOW_COLORS[blocks.length % RAINBOW_COLORS.length];
+            }
+            return BLOCK_COLOR;
+        }
+
+        function resetGame() {
+            score = 0;
+            scoreElement.textContent = score;
+            blocks = [];
+            
+            // Create the base block
+            const base = {
+                x: (canvas.width - 100) / 2,
+                y: canvas.height - BLOCK_HEIGHT,
+                width: 100,
+                color: getBlockColor()
+            };
+            blocks.push(base);
+            
+            spawnBlock();
+            gameState = 'playing';
+            loop();
+        }
+
+        function spawnBlock() {
+            const lastBlock = blocks[blocks.length - 1];
+            currentBlock = {
+                x: 0,
+                y: lastBlock.y - BLOCK_HEIGHT,
+                width: lastBlock.width,
+                speed: 3,
+                direction: 1, // 1 for right, -1 for left
+                color: getBlockColor()
+            };
+        }
+
+        function update() {
+            if (gameState !== 'playing') return;
+
+            currentBlock.x += currentBlock.speed * currentBlock.direction;
+
+            if (currentBlock.x + currentBlock.width > canvas.width || currentBlock.x < 0) {
+                currentBlock.direction *= -1;
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw all stacked blocks
+            blocks.forEach(block => {
+                ctx.fillStyle = block.color;
+                ctx.fillRect(block.x, block.y, block.width, BLOCK_HEIGHT);
+                ctx.strokeStyle = 'black';
+                ctx.strokeRect(block.x, block.y, block.width, BLOCK_HEIGHT);
+            });
+
+            // Draw the currently moving block
+            if (gameState === 'playing') {
+                ctx.fillStyle = currentBlock.color;
+                ctx.fillRect(currentBlock.x, currentBlock.y, currentBlock.width, BLOCK_HEIGHT);
+                ctx.strokeStyle = 'black';
+                ctx.strokeRect(currentBlock.x, currentBlock.y, currentBlock.width, BLOCK_HEIGHT);
+            }
+        }
+
+        function loop() {
+            if (gameState === 'gameover') return;
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        function placeBlock() {
+            if (gameState !== 'playing') return;
+
+            const lastBlock = blocks[blocks.length - 1];
+            const newBlock = currentBlock;
+
+            const overlap = Math.max(0, Math.min(newBlock.x + newBlock.width, lastBlock.x + lastBlock.width) - Math.max(newBlock.x, lastBlock.x));
+
+            if (overlap <= 0) {
+                // Game Over
+                gameState = 'gameover';
+                playGameOverSound();
+                document.getElementById('finalScore').textContent = score;
+                gameOverScreen.style.display = 'flex';
+                canvas.style.display = 'none';
+                scoreDisplay.style.display = 'none';
+            } else {
+                // Place the block
+                playStackSound();
+                const newX = Math.max(newBlock.x, lastBlock.x);
+                newBlock.x = newX;
+                newBlock.width = overlap;
+                
+                blocks.push(newBlock);
+                score++;
+                scoreElement.textContent = score;
+
+                // Move camera up
+                if (blocks.length > 10) {
+                    const shiftY = BLOCK_HEIGHT;
+                    blocks.forEach(b => b.y += shiftY);
+                }
+
+                spawnBlock();
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                initAudio();
+                placeBlock();
+            }
+        });
+        
+        startButton.addEventListener('click', () => {
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            document.getElementById('gameTitle').style.display = 'block';
+            canvas.style.display = 'block';
+            scoreDisplay.style.display = 'block';
+            initAudio();
+            resetGame();
+        });
+
+        restartButton.addEventListener('click', () => {
+            gameOverScreen.style.display = 'none';
+            canvas.style.display = 'block';
+            scoreDisplay.style.display = 'block';
+            resetGame();
+        });
+
+    </script>
+</body>
+</html>
+    
