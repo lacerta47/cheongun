@@ -3,201 +3,165 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>이불밖은 위험해</title>
+    <title>지박소년 하나코</title>
     <style>
         body {
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            height: 100vh;
-            margin: 0;
+            font-family: 'Arial', sans-serif;
             background-color: #f0f0f0;
-            font-family: sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
         }
         #game-container {
             width: 800px;
-            height: 400px;
+            height: 600px;
             border: 2px solid #333;
-            background-color: #87CEEB; /* Sky blue */
+            background: linear-gradient(to bottom, #87CEEB, #f0f8ff);
             position: relative;
             overflow: hidden;
+            margin-bottom: 10px;
         }
-        #character {
+        #player {
             width: 50px;
             height: 50px;
-            background-color: #FFD700; /* Gold */
+            background-color: #ff6347; /* Placeholder for Hanako-kun */
             position: absolute;
-            bottom: 0;
-            left: 50px;
-            transition: height 0.2s, bottom 0.2s;
+            bottom: 10px;
+            left: 375px;
+            border-radius: 5px;
         }
-        .obstacle {
-            width: 30px;
-            height: 60px;
-            background-color: #8B4513; /* SaddleBrown */
+        .enemy {
+            width: 40px;
+            height: 40px;
+            background-color: #800080; /* Placeholder for enemy */
             position: absolute;
-            bottom: 0;
+            border-radius: 50%;
         }
-        #score {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            font-size: 24px;
-            color: #333;
+        #reset-button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
         }
-        #game-over {
-            display: none;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 48px;
-            color: red;
-            text-align: center;
+        #controls {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #555;
         }
     </style>
 </head>
 <body>
-    <div id="game-container">
-        <div id="character"></div>
-        <div id="score">Score: 0</div>
-        <div id="game-over">Game Over<br><small>Click to restart</small></div>
-    </div>
+    <h1>지박소년 하나코</h1>
+    <div id="game-container"></div>
+    <div id="controls">이동: W, A, S, D | 공격: 스페이스바</div>
+    <button id="reset-button">초기화</button>
 
     <script>
         const gameContainer = document.getElementById('game-container');
-        const character = document.getElementById('character');
-        const scoreDisplay = document.getElementById('score');
-        const gameOverDisplay = document.getElementById('game-over');
+        const resetButton = document.getElementById('reset-button');
 
-        let score = 0;
-        let isJumping = false;
-        let isDucking = false;
-        let isGameOver = false;
-        let gameInterval;
-        let obstacleInterval;
+        let player;
+        let enemies = [];
+        let keys = {};
 
-        function jump() {
-            if (isJumping || isGameOver) return;
-            isJumping = true;
-            let jumpHeight = 0;
-            const jumpInterval = setInterval(() => {
-                if (jumpHeight >= 150) {
-                    clearInterval(jumpInterval);
-                    const fallInterval = setInterval(() => {
-                        if (jumpHeight <= 0) {
-                            clearInterval(fallInterval);
-                            isJumping = false;
-                            character.style.bottom = '0px';
-                        } else {
-                            jumpHeight -= 10;
-                            character.style.bottom = jumpHeight + 'px';
-                        }
-                    }, 20);
-                } else {
-                    jumpHeight += 10;
-                    character.style.bottom = jumpHeight + 'px';
-                }
-            }, 20);
+        function createPlayer() {
+            const playerElement = document.createElement('div');
+            playerElement.id = 'player';
+            gameContainer.appendChild(playerElement);
+            return {
+                element: playerElement,
+                x: 375,
+                y: 540, // Positioned at the bottom
+                speed: 5
+            };
         }
 
-        function duck(shouldDuck) {
-            if (isJumping || isGameOver) return;
-            if (shouldDuck && !isDucking) {
-                isDucking = true;
-                character.style.height = '25px';
-            } else if (!shouldDuck && isDucking) {
-                isDucking = false;
-                character.style.height = '50px';
-            }
+        function createEnemy() {
+            const enemyElement = document.createElement('div');
+            enemyElement.className = 'enemy';
+            gameContainer.appendChild(enemyElement);
+            const enemy = {
+                element: enemyElement,
+                x: Math.random() * 760,
+                y: -40, // Start above the screen
+                speed: Math.random() * 2 + 1
+            };
+            enemies.push(enemy);
         }
 
-        function createObstacle() {
-            if (isGameOver) return;
-            const obstacle = document.createElement('div');
-            obstacle.classList.add('obstacle');
-            obstacle.style.left = '770px';
-            gameContainer.appendChild(obstacle);
+        function updateGame() {
+            // Player movement
+            if (keys['w'] && player.y > 0) player.y -= player.speed;
+            if (keys['s'] && player.y < 550) player.y += player.speed;
+            if (keys['a'] && player.x > 0) player.x -= player.speed;
+            if (keys['d'] && player.x < 750) player.x += player.speed;
 
-            let obstaclePosition = 770;
-            const obstacleMoveInterval = setInterval(() => {
-                if (isGameOver) {
-                    clearInterval(obstacleMoveInterval);
-                    obstacle.remove();
-                    return;
+            player.element.style.left = player.x + 'px';
+            player.element.style.top = player.y + 'px';
+
+            // Move enemies
+            enemies.forEach((enemy, index) => {
+                enemy.y += enemy.speed;
+                if (enemy.y > 600) {
+                    enemy.element.remove();
+                    enemies.splice(index, 1);
                 }
+                enemy.element.style.left = enemy.x + 'px';
+                enemy.element.style.top = enemy.y + 'px';
+            });
 
-                if (obstaclePosition < -30) {
-                    clearInterval(obstacleMoveInterval);
-                    obstacle.remove();
-                    score++;
-                    scoreDisplay.textContent = 'Score: ' + score;
-                } else {
-                    obstaclePosition -= 5;
-                    obstacle.style.left = obstaclePosition + 'px';
+            requestAnimationFrame(updateGame);
+        }
 
-                    // Collision detection
-                    const charRect = character.getBoundingClientRect();
-                    const obsRect = obstacle.getBoundingClientRect();
+        function attack() {
+            const attackRange = 50;
+            enemies.forEach((enemy, index) => {
+                const dx = player.x - enemy.x;
+                const dy = player.y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
 
-                    if (
-                        charRect.left < obsRect.right &&
-                        charRect.right > obsRect.left &&
-                        charRect.top < obsRect.bottom &&
-                        charRect.bottom > obsRect.top
-                    ) {
-                        endGame();
-                    }
+                if (distance < attackRange) {
+                    enemy.element.remove();
+                    enemies.splice(index, 1);
                 }
-            }, 20);
+            });
         }
 
         function startGame() {
-            isGameOver = false;
-            score = 0;
-            scoreDisplay.textContent = 'Score: 0';
-            gameOverDisplay.style.display = 'none';
-            character.style.bottom = '0px';
-            character.style.height = '50px';
-            isJumping = false;
-            isDucking = false;
+            gameContainer.innerHTML = '';
+            player = createPlayer();
+            enemies = [];
+            keys = {};
 
-            // Clear any existing intervals and obstacles
-            clearInterval(gameInterval);
-            clearInterval(obstacleInterval);
-            document.querySelectorAll('.obstacle').forEach(o => o.remove());
-
-            obstacleInterval = setInterval(createObstacle, 2000);
+            // Spawn enemies periodically
+            setInterval(createEnemy, 2000);
         }
-
-        function endGame() {
-            isGameOver = true;
-            clearInterval(gameInterval);
-            clearInterval(obstacleInterval);
-            gameOverDisplay.style.display = 'block';
-        }
-
-        document.addEventListener('click', () => {
-            if (isGameOver) {
-                startGame();
-            } else {
-                jump();
-            }
-        });
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-                duck(true);
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === ' ') {
+                attack();
             }
         });
 
         document.addEventListener('keyup', (e) => {
-            if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-                duck(false);
-            }
+            keys[e.key.toLowerCase()] = false;
         });
 
+        resetButton.addEventListener('click', startGame);
+
+        // Initial start
         startGame();
+        updateGame();
+
     </script>
 </body>
 </html>
