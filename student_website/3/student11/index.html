@@ -1,1 +1,38 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>생존게임</title>
+    <meta name="description" content="간단한 3D 생존 게임">
+    <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <style>
+        body { margin: 0; }
+        .a-scene { height: 100vh; width: 100vw; }
+    </style>
+</head>
+<body>
+    <a-scene background="color: #ECECEC">
+        <!-- 플레이어: 카메라와 WASD 이동 컨트롤 -->
+        <a-entity id="player" position="0 1.6 0" camera look-controls wasd-controls>
+            <!-- 손에 들고 있는 권총 (간단한 상자로 표현) -->
+            <!-- 나중에 복잡한 3D 모델로 교체할 수 있습니다. -->
+            <a-box id="pistol" color="#333" width="0.1" height="0.15" depth="0.3" position="0.3 -0.4 -0.5"></a-box>
+        </a-entity>
+
+        <!-- 생존 자원 (상자들) -->
+        <a-box position="-1 0.5 3" rotation="0 45 0" color="#4CC3D9" shadow></a-box>
+        <a-box position="2 0.5 -3" rotation="0 30 0" color="#4CC3D9" shadow></a-box>
+        <a-box position="-3 0.5 -2" rotation="0 60 0" color="#4CC3D9" shadow></a-box>
+        <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E" shadow></a-sphere>
+        <a-cylinder position="1 0.75 -3" radius="0.5" height="1.5" color="#FFC65D" shadow></a-cylinder>
+
+        <!-- 바닥 -->
+        <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#7BC8A4" shadow></a-plane>
+
+        <!-- 하늘/조명 -->
+        <a-sky color="#87CEEB"></a-sky>
+        <a-light type="ambient" color="#888"></a-light>
+        <a-light type="directional" position="-1 1 1" intensity="0.5"></a-light>
+    </a-scene>
+</body>
+</html>
