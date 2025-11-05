@@ -1,1 +1,96 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+<title>그림판</title>
+<style>
+  body {
+    display: flex;
+    font-family: sans-serif;
+  }
+  #canvas {
+    border: 1px solid black;
+    cursor: crosshair;
+  }
+  #palette {
+    display: flex;
+    flex-direction: column;
+    margin-left: 10px;
+  }
+  .color-box {
+    width: 30px;
+    height: 30px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+  }
+  #eraser {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 5px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    text-align: center;
+    line-height: 30px;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas" width="500" height="400"></canvas>
+<div id="palette">
+  <div class="color-box" style="background-color: black;" data-color="black"></div>
+  <div class="color-box" style="background-color: red;" data-color="red"></div>
+  <div class="color-box" style="background-color: orange;" data-color="orange"></div>
+  <div class="color-box" style="background-color: yellow;" data-color="yellow"></div>
+  <div class="color-box" style="background-color: green;" data-color="green"></div>
+  <div class="color-box" style="background-color: blue;" data-color="blue"></div>
+  <div class="color-box" style="background-color: indigo;" data-color="indigo"></div>
+  <div class="color-box" style="background-color: purple;" data-color="purple"></div>
+  <div id="eraser">지우개</div>
+</div>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const palette = document.getElementById('palette');
+
+  let isDrawing = false;
+  let currentColor = 'black';
+
+  canvas.addEventListener('mousedown', (e) => {
+    isDrawing = true;
+    ctx.beginPath();
+    ctx.moveTo(e.offsetX, e.offsetY);
+  });
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (isDrawing) {
+      ctx.lineTo(e.offsetX, e.offsetY);
+      ctx.strokeStyle = currentColor;
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    }
+  });
+
+  canvas.addEventListener('mouseup', () => {
+    isDrawing = false;
+    ctx.closePath();
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    isDrawing = false;
+  });
+
+  palette.addEventListener('click', (e) => {
+    if (e.target.className === 'color-box') {
+      currentColor = e.target.dataset.color;
+    }
+    if (e.target.id === 'eraser') {
+      currentColor = 'white';
+    }
+  });
+</script>
+
+</body>
+</html>

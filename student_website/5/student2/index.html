@@ -1,1 +1,248 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>블럭 부수기</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            color: #333;
+        }
+        #game-container {
+            position: relative;
+            width: 400px;
+            height: 500px;
+            border: 3px solid #333;
+            background-color: #fff;
+            overflow: hidden;
+        }
+        .brick {
+            position: absolute;
+            width: 78px; /* (400 - 2*5) / 5 */
+            height: 20px;
+            background-color: #4CAF50;
+            border: 1px solid #333;
+        }
+        #paddle {
+            position: absolute;
+            width: 80px;
+            height: 15px;
+            background-color: #333;
+            bottom: 10px;
+            left: 160px; /* (400 - 80) / 2 */
+        }
+        #ball {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background-color: #f44336;
+            border-radius: 50%;
+            bottom: 35px; /* paddle height + gap */
+            left: 192.5px; /* (400 - 15) / 2 */
+        }
+        #restart-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: 2px solid #333;
+            background-color: #fff;
+            border-radius: 5px;
+        }
+        #restart-button:hover {
+            background-color: #ddd;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>블럭 부수기</h1>
+    <div id="game-container">
+        <div id="paddle"></div>
+        <div id="ball"></div>
+    </div>
+    <button id="restart-button">다시하기</button>
+
+    <script>
+        const gameContainer = document.getElementById('game-container');
+        const paddle = document.getElementById('paddle');
+        const ball = document.getElementById('ball');
+        const restartButton = document.getElementById('restart-button');
+
+        const containerWidth = gameContainer.clientWidth;
+        const containerHeight = gameContainer.clientHeight;
+
+        // Paddle
+        let paddleX = paddle.offsetLeft;
+        const paddleWidth = paddle.offsetWidth;
+        const paddleSpeed = 15;
+
+        // Ball
+        let ballX = ball.offsetLeft;
+        let ballY = ball.offsetTop;
+        let ballSpeedX = 2;
+        let ballSpeedY = -3;
+        const ballSize = 15;
+
+        // Bricks
+        const brickRows = 4;
+        const brickCols = 5;
+        const brickWidth = 78;
+        const brickHeight = 20;
+        const brickPadding = 2;
+        const bricks = [];
+
+        function createBricks() {
+            // Clear existing bricks
+            document.querySelectorAll('.brick').forEach(brick => brick.remove());
+            bricks.length = 0;
+
+            for (let r = 0; r < brickRows; r++) {
+                bricks[r] = [];
+                for (let c = 0; c < brickCols; c++) {
+                    const brickX = c * (brickWidth + brickPadding);
+                    const brickY = r * (brickHeight + brickPadding) + 30; // Add some top margin
+                    
+                    const brick = document.createElement('div');
+                    brick.classList.add('brick');
+                    brick.style.left = brickX + 'px';
+                    brick.style.top = brickY + 'px';
+                    gameContainer.appendChild(brick);
+                    
+                    bricks[r][c] = { x: brickX, y: brickY, element: brick, visible: true };
+                }
+            }
+        }
+
+        function movePaddle(direction) {
+            if (direction === 'left') {
+                paddleX -= paddleSpeed;
+            }
+            if (direction === 'right') {
+                paddleX += paddleSpeed;
+            }
+
+            // Boundary check
+            if (paddleX < 0) {
+                paddleX = 0;
+            }
+            if (paddleX + paddleWidth > containerWidth) {
+                paddleX = containerWidth - paddleWidth;
+            }
+            paddle.style.left = paddleX + 'px';
+        }
+
+        function updateBallPosition() {
+            ballX += ballSpeedX;
+            // Invert Y because CSS top is 0 at the top
+            ballY += ballSpeedY; 
+
+            // Wall collision (left/right)
+            if (ballX <= 0 || ballX + ballSize >= containerWidth) {
+                ballSpeedX *= -1;
+            }
+
+            // Wall collision (top)
+            if (ballY <= 0) {
+                ballSpeedY *= -1;
+            }
+
+            // Paddle collision
+            const paddleTop = paddle.offsetTop;
+            if (ballY + ballSize >= paddleTop && 
+                ballY + ballSize < paddleTop + paddle.offsetHeight &&
+                ballX + ballSize > paddleX && 
+                ballX < paddleX + paddleWidth) {
+                ballSpeedY *= -1;
+                // Prevent ball from getting stuck in paddle
+                ballY = paddleTop - ballSize; 
+            }
+
+            // Brick collision
+            for (let r = 0; r < brickRows; r++) {
+                for (let c = 0; c < brickCols; c++) {
+                    const b = bricks[r][c];
+                    if (b.visible) {
+                        if (
+                            ballX + ballSize > b.x &&
+                            ballX < b.x + brickWidth &&
+                            ballY + ballSize > b.y &&
+                            ballY < b.y + brickHeight
+                        ) {
+                            ballSpeedY *= -1;
+                            b.visible = false;
+                            b.element.style.display = 'none';
+                        }
+                    }
+                }
+            }
+
+            // Game over (ball hits bottom)
+            if (ballY + ballSize >= containerHeight) {
+                alert('게임 오버!');
+                resetGame();
+                return; // Stop this frame
+            }
+            
+            // Check for win
+            if (bricks.flat().every(b => !b.visible)) {
+                 alert('축하합니다! 모든 블럭을 부쉈습니다!');
+                 resetGame();
+                 return; // Stop this frame
+            }
+
+
+            ball.style.left = ballX + 'px';
+            ball.style.top = ballY + 'px';
+
+            requestAnimationFrame(updateBallPosition);
+        }
+        
+        function resetGame() {
+            // Reset paddle
+            paddleX = (containerWidth - paddleWidth) / 2;
+            paddle.style.left = paddleX + 'px';
+
+            // Reset ball
+            ballX = (containerWidth - ballSize) / 2;
+            ballY = paddle.offsetTop - ballSize - 5;
+            ballSpeedX = 2;
+            ballSpeedY = -3;
+            
+            // Recreate bricks
+            createBricks();
+        }
+
+
+        // Event Listeners
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                movePaddle('left');
+            } else if (e.key === 'ArrowRight') {
+                movePaddle('right');
+            }
+        });
+
+        restartButton.addEventListener('click', () => {
+            // This will stop the current animation loop and start a new one
+            document.location.reload();
+        });
+
+        // Start Game
+        createBricks();
+        requestAnimationFrame(updateBallPosition);
+
+    </script>
+
+</body>
+</html>

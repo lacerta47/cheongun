@@ -1,1 +1,225 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>아빠 몰래 새벽에 라면 끓이기</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            user-select: none;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            border: 2px solid #333;
+            margin: 20px auto;
+            background-color: #fff;
+            overflow: hidden;
+        }
+        .room {
+            position: absolute;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+        #kitchen {
+            width: 500px;
+            height: 500px;
+            left: 0;
+            top: 0;
+            background-color: #fff8e1;
+        }
+        #dads-room {
+            width: 300px;
+            height: 500px;
+            left: 500px;
+            top: 0;
+            background-color: #e3f2fd;
+        }
+        #player {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: #4CAF50;
+            border-radius: 50%;
+            transition: all 0.1s linear;
+            left: 50px;
+            top: 230px;
+        }
+        .item {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #ramen {
+            left: 400px;
+            top: 50px;
+        }
+        #pot {
+            left: 100px;
+            top: 400px;
+        }
+        #stove {
+            left: 300px;
+            top: 225px;
+        }
+        #dad {
+            position: absolute;
+            left: 100px;
+            top: 200px;
+            font-size: 50px;
+            animation: sleep 1.5s infinite;
+        }
+        @keyframes sleep {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        #message {
+            font-size: 24px;
+            margin-top: 10px;
+            color: #ff0000;
+            font-weight: bold;
+        }
+        #lives, #objective {
+            font-size: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>아빠 몰래 새벽에 라면 끓이기</h1>
+    <div id="status">
+        <span id="lives">목숨: ❤️❤️</span>
+        <p id="objective">목표: 라면을 찾아서 끓여드세요!</p>
+    </div>
+    <div id="game-container">
+        <div id="kitchen" class="room">
+            <div id="stove" class="item">🔥</div>
+            <div id="pot" class="item">냄비</div>
+            <div id="ramen" class="item">🍜</div>
+        </div>
+        <div id="dads-room" class="room">
+            <div id="dad">Zzz...</div>
+        </div>
+        <div id="player"></div>
+    </div>
+    <div id="message"></div>
+
+    <script>
+        const player = document.getElementById('player');
+        const gameContainer = document.getElementById('game-container');
+        const dadsRoom = document.getElementById('dads-room');
+        const message = document.getElementById('message');
+        const livesDisplay = document.getElementById('lives');
+        const objectiveDisplay = document.getElementById('objective');
+
+        const ramen = document.getElementById('ramen');
+        const pot = document.getElementById('pot');
+        const stove = document.getElementById('stove');
+
+        let lives = 2;
+        let gameOver = false;
+
+        let hasRamen = false;
+        let hasPot = false;
+        let isStoveOn = false;
+
+        gameContainer.addEventListener('mousemove', (e) => {
+            if (gameOver) return;
+
+            const rect = gameContainer.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            player.style.left = (x - player.offsetWidth / 2) + 'px';
+            player.style.top = (y - player.offsetHeight / 2) + 'px';
+
+            checkCollision();
+        });
+
+        function checkCollision() {
+            const playerRect = player.getBoundingClientRect();
+            const dadsRoomRect = dadsRoom.getBoundingClientRect();
+
+            if (playerRect.right > dadsRoomRect.left) {
+                loseLife();
+            }
+        }
+
+        function loseLife() {
+            lives--;
+            updateLives();
+            if (lives <= 0) {
+                message.textContent = "아빠가 깼다! 게임 오버...";
+                gameOver = true;
+            } else {
+                message.textContent = "조심! 아빠가 깰 뻔 했어요!";
+                // Reset player position
+                player.style.left = '50px';
+                player.style.top = '230px';
+            }
+        }
+
+        function updateLives() {
+            livesDisplay.textContent = "목숨: " + "❤️".repeat(lives);
+        }
+        
+        function updateObjective() {
+            if (!hasRamen) {
+                objectiveDisplay.textContent = "목표: 라면을 찾으세요.";
+            } else if (!hasPot) {
+                objectiveDisplay.textContent = "목표: 냄비를 찾으세요.";
+            } else if (!isStoveOn) {
+                objectiveDisplay.textContent = "목표: 가스레인지를 켜서 라면을 끓이세요.";
+            } else {
+                objectiveDisplay.textContent = "성공!";
+            }
+        }
+
+        ramen.addEventListener('click', () => {
+            if (gameOver) return;
+            hasRamen = true;
+            ramen.style.display = 'none';
+            message.textContent = "라면을 획득했다!";
+            updateObjective();
+        });
+
+        pot.addEventListener('click', () => {
+            if (gameOver) return;
+            if (!hasRamen) {
+                message.textContent = "라면부터 찾아야지!";
+                return;
+            }
+            hasPot = true;
+            pot.style.display = 'none';
+            message.textContent = "냄비를 획득했다!";
+            updateObjective();
+        });
+
+        stove.addEventListener('click', () => {
+            if (gameOver) return;
+            if (!hasRamen || !hasPot) {
+                message.textContent = "라면과 냄비가 모두 필요해!";
+                return;
+            }
+            isStoveOn = true;
+            stove.textContent = '♨️';
+            message.textContent = "라면 끓이기 성공! 맛있게 먹자!";
+            objectiveDisplay.textContent = "미션 성공!";
+            gameOver = true;
+        });
+        
+        updateObjective();
+
+    </script>
+
+</body>
+</html>

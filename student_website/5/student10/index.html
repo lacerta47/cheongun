@@ -1,1 +1,184 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>기억력 게임</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f8ff;
+        }
+        #game-container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 15px;
+            background-color: #ffffff;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        #char-display {
+            width: 300px;
+            height: 100px;
+            border: 2px solid #ddd;
+            margin: 20px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 48px;
+            overflow: hidden;
+            position: relative;
+        }
+        #moving-char {
+            position: absolute;
+            animation: move 2s linear forwards;
+        }
+        input[type="text"] {
+            padding: 10px;
+            font-size: 16px;
+            width: 200px;
+            margin-right: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: white;
+        }
+        #retry-btn {
+            background-color: #f44336;
+            display: none; /* Initially hidden */
+            margin-top: 10px;
+        }
+        #message {
+            margin-top: 15px;
+            font-size: 18px;
+            color: #555;
+            height: 25px;
+        }
+        @keyframes move {
+            from { transform: translateX(-150px); }
+            to { transform: translateX(150px); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <h1>기억력 게임</h1>
+    <div id="char-display">
+        <span id="moving-char"></span>
+    </div>
+    <div id="message">레벨 1</div>
+    <input type="text" id="user-input" placeholder="문자를 입력하세요">
+    <button id="submit-btn">확인</button>
+    <button id="retry-btn">다시 하기</button>
+</div>
+
+<script>
+    const charDisplay = document.getElementById('char-display');
+    const movingChar = document.getElementById('moving-char');
+    const userInput = document.getElementById('user-input');
+    const submitBtn = document.getElementById('submit-btn');
+    const retryBtn = document.getElementById('retry-btn');
+    const messageEl = document.getElementById('message');
+
+    let level = 1;
+    let currentChars = '';
+    let animationSpeed = 2; // seconds
+    let isAnimating = false;
+
+    const allChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+    function getRandomChar() {
+        return allChars[Math.floor(Math.random() * allChars.length)];
+    }
+
+    function generateChars() {
+        let newChars = '';
+        for (let i = 0; i < level + 1; i++) {
+            newChars += getRandomChar();
+        }
+        return newChars;
+    }
+
+    function showChars() {
+        isAnimating = true;
+        userInput.disabled = true;
+        submitBtn.disabled = true;
+        messageEl.textContent = `레벨 ${level}`;
+
+        let i = 0;
+        function nextChar() {
+            if (i < currentChars.length) {
+                movingChar.textContent = currentChars[i];
+                movingChar.style.animation = 'none';
+                // Trigger reflow
+                movingChar.offsetHeight; 
+                movingChar.style.animation = `move ${animationSpeed}s linear forwards`;
+                i++;
+                setTimeout(nextChar, animationSpeed * 1000 + 100);
+            } else {
+                movingChar.textContent = '';
+                isAnimating = false;
+                userInput.disabled = false;
+                submitBtn.disabled = false;
+                userInput.focus();
+                messageEl.textContent = '문자를 기억해서 입력하세요!';
+            }
+        }
+        nextChar();
+    }
+
+    function startGame() {
+        currentChars = generateChars();
+        animationSpeed = Math.max(0.5, 2 - level * 0.2);
+        userInput.value = '';
+        retryBtn.style.display = 'none';
+        submitBtn.style.display = 'inline-block';
+        userInput.style.display = 'inline-block';
+        showChars();
+    }
+
+    submitBtn.addEventListener('click', () => {
+        if (isAnimating) return;
+
+        if (userInput.value === currentChars) {
+            level++;
+            messageEl.textContent = '정답! 다음 레벨로 갑니다.';
+            setTimeout(startGame, 1500);
+        } else {
+            messageEl.textContent = `실패! 정답: ${currentChars}`;
+            retryBtn.style.display = 'inline-block';
+            submitBtn.style.display = 'none';
+            userInput.style.display = 'none';
+        }
+    });
+    
+    userInput.addEventListener('keyup', (event) => {
+        if (event.key === 'Enter') {
+            submitBtn.click();
+        }
+    });
+
+    retryBtn.addEventListener('click', () => {
+        level = 1;
+        startGame();
+    });
+
+    // Start the game for the first time
+    startGame();
+</script>
+
+</body>
+</html>

@@ -1,1 +1,242 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>단어장 (영한 번역)</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #app {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+        #word-input {
+            width: 80%;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        #result-display {
+            text-align: left;
+            margin-bottom: 20px;
+            min-height: 50px;
+        }
+        #result-display h2 {
+            margin-top: 0;
+        }
+        #result-display ol, #result-display ul {
+            padding-left: 20px;
+        }
+        #test-button {
+            display: none;
+            background-color: #90ee90; /* 연두색 */
+            color: black;
+            border: none;
+            padding: 15px;
+            border-radius: 50%;
+            width: 100px;
+            height: 100px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 20px auto;
+        }
+        #quiz-view {
+            display: none;
+            text-align: center;
+        }
+        #quiz-view .definition {
+            margin-bottom: 20px;
+            font-size: 1.2em;
+        }
+        #quiz-view .feedback {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .correct { color: green; }
+        .incorrect { color: red; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div id="home-view">
+        <h1>내 단어장 (영한 번역)</h1>
+        <input type="text" id="word-input" placeholder="번역할 영어단어를 입력하세요">
+        <div id="result-display"></div>
+        <button id="test-button">확인<br>평가</button>
+    </div>
+    <div id="quiz-view">
+        <h1>확인 평가</h1>
+        <div class="definition"></div>
+        <input type="text" id="answer-input" placeholder="정답을 영어로 입력하세요">
+        <div class="feedback"></div>
+        <button id="next-question-btn" style="display:none;">다음 문제</button>
+    </div>
+</div>
+
+<script>
+    const wordInput = document.getElementById('word-input');
+    const resultDisplay = document.getElementById('result-display');
+    const testButton = document.getElementById('test-button');
+    const homeView = document.getElementById('home-view');
+    const quizView = document.getElementById('quiz-view');
+
+    const foundWords = new Map();
+
+    wordInput.addEventListener('keypress', async function(event) {
+        if (event.key === 'Enter') {
+            const word = wordInput.value.trim().toLowerCase();
+            if (!word) return;
+
+            resultDisplay.innerHTML = `<p>'${word}'의 뜻을 찾는 중...</p>`;
+
+            try {
+                const apiUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|ko`;
+                const response = await fetch(apiUrl);
+
+                if (!response.ok) {
+                    throw new Error('번역 서비스에 연결할 수 없습니다.');
+                }
+
+                const data = await response.json();
+
+                if (data.responseStatus !== 200) {
+                    throw new Error(`서비스 오류: ${data.responseDetails}`);
+                }
+
+                const translatedText = data.responseData.translatedText;
+
+                if (!translatedText || translatedText.toLowerCase() === word) {
+                     throw new Error('유효한 번역을 찾지 못했습니다.');
+                }
+
+                const meanings = [translatedText];
+
+                if (!foundWords.has(word)) {
+                    foundWords.set(word, meanings);
+                }
+                
+                let meaningsHtml = `<h2>${word}</h2><ul>`;
+                meanings.forEach(meaning => {
+                    meaningsHtml += `<li>${meaning}</li>`;
+                });
+                meaningsHtml += `</ul>`;
+                resultDisplay.innerHTML = meaningsHtml;
+
+                if (foundWords.size >= 10) { 
+                    testButton.style.display = 'block';
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                resultDisplay.innerHTML = `<p>'${word}'의 뜻을 찾을 수 없습니다. (${error.message})</p>`;
+            }
+            wordInput.value = '';
+        }
+    });
+
+    testButton.addEventListener('click', startQuiz);
+
+    let quizWords = [];
+    let currentQuestionIndex = 0;
+    let incorrectTries = 0;
+
+    function startQuiz() {
+        homeView.style.display = 'none';
+        quizView.style.display = 'block';
+        
+        quizWords = Array.from(foundWords.keys());
+        quizWords.sort(() => Math.random() - 0.5);
+        
+        currentQuestionIndex = 0;
+        incorrectTries = 0;
+        
+        displayQuestion();
+    }
+
+    function displayQuestion() {
+        if (currentQuestionIndex >= quizWords.length) {
+            alert("모든 문제를 다 풀었습니다! 홈으로 돌아갑니다.");
+            goHome();
+            return;
+        }
+
+        const word = quizWords[currentQuestionIndex];
+        const meanings = foundWords.get(word);
+        
+        const definitionDiv = quizView.querySelector('.definition');
+        let meaningsText = '';
+        meanings.forEach(m => meaningsText += `${m}<br>`);
+        definitionDiv.innerHTML = meaningsText;
+
+        quizView.querySelector('.feedback').innerHTML = '';
+        quizView.querySelector('#answer-input').value = '';
+        quizView.querySelector('#answer-input').disabled = false;
+        quizView.querySelector('#next-question-btn').style.display = 'none';
+    }
+
+    const answerInput = document.getElementById('answer-input');
+    answerInput.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            checkAnswer();
+        }
+    });
+    
+    const nextButton = document.getElementById('next-question-btn');
+    nextButton.addEventListener('click', () => {
+        currentQuestionIndex++;
+        incorrectTries = 0;
+        displayQuestion();
+    });
+
+
+    function checkAnswer() {
+        const correctAnswer = quizWords[currentQuestionIndex];
+        const userAnswer = answerInput.value.trim().toLowerCase();
+        const feedbackDiv = quizView.querySelector('.feedback');
+
+        if (userAnswer === correctAnswer) {
+            feedbackDiv.textContent = "정답입니다! молодец!";
+            feedbackDiv.className = 'feedback correct';
+            answerInput.disabled = true;
+            nextButton.style.display = 'block';
+        } else {
+            incorrectTries++;
+            feedbackDiv.className = 'feedback incorrect';
+            if (incorrectTries >= 3) {
+                feedbackDiv.innerHTML = `X<br>3번 틀렸습니다. 정답은 '${correctAnswer}' 입니다.`;
+                answerInput.disabled = true;
+                nextButton.style.display = 'block';
+            } else {
+                let hint = `X<br>힌트: 첫 글자는 '${correctAnswer[0]}', 마지막 글자는 '${correctAnswer[correctAnswer.length - 1]}' 입니다. (${incorrectTries}/3)`;
+                feedbackDiv.innerHTML = hint;
+            }
+        }
+    }
+
+    function goHome() {
+        homeView.style.display = 'block';
+        quizView.style.display = 'none';
+        resultDisplay.innerHTML = '';
+        foundWords.clear();
+        testButton.style.display = 'none';
+    }
+
+</script>
+
+</body>
+</html>

@@ -1,1 +1,204 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+<title>마크</title>
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        background-color: #87CEEB; /* Sky blue */
+    }
+    canvas {
+        border: 1px solid black;
+    }
+    #controls {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        padding: 10px;
+        background-color: rgba(255, 255, 255, 0.7);
+        border-radius: 5px;
+    }
+</style>
+</head>
+<body>
+
+<div id="controls">
+    <b>조작법:</b><br>
+    W: 앞으로<br>
+    S: 뒤로<br>
+    A: 오른쪽<br>
+    D: 왼쪽<br>
+    마우스 클릭: 공격<br>
+    마우스 꾹 누르기: 블록 캐기
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const worldWidth = 20;
+    const worldHeight = 20;
+    const blockSize = 30;
+
+    canvas.width = worldWidth * blockSize;
+    canvas.height = worldHeight * blockSize;
+
+    let player = {
+        x: Math.floor(worldWidth / 2),
+        y: Math.floor(worldHeight / 2),
+        color: 'red'
+    };
+
+    let animals = [
+        { x: 5, y: 5, color: 'brown', dx: 1, dy: 0 },
+        { x: 15, y: 10, color: 'gray', dx: -1, dy: 0 },
+        { x: 10, y: 15, color: 'white', dx: 0, dy: 1 }
+    ];
+
+    let world = [];
+    for (let y = 0; y < worldHeight; y++) {
+        let row = [];
+        for (let x = 0; x < worldWidth; x++) {
+            // Create a simple pattern of blocks
+            if (Math.random() > 0.8) {
+                row.push('rock');
+            } else {
+                row.push('grass');
+            }
+        }
+        world.push(row);
+    }
+
+    function draw() {
+        // Draw world
+        for (let y = 0; y < worldHeight; y++) {
+            for (let x = 0; x < worldWidth; x++) {
+                switch(world[y][x]) {
+                    case 'grass':
+                        ctx.fillStyle = '#228B22'; // ForestGreen
+                        break;
+                    case 'rock':
+                        ctx.fillStyle = '#A9A9A9'; // DarkGray
+                        break;
+                    case null:
+                        ctx.fillStyle = '#8B4513'; // SaddleBrown (dirt after mining)
+                        break;
+                }
+                ctx.fillRect(x * blockSize, y * blockSize, blockSize, blockSize);
+                ctx.strokeStyle = '#555';
+                ctx.strokeRect(x * blockSize, y * blockSize, blockSize, blockSize);
+            }
+        }
+
+        // Draw animals
+        animals.forEach(animal => {
+            ctx.fillStyle = animal.color;
+            ctx.fillRect(animal.x * blockSize, animal.y * blockSize, blockSize, blockSize);
+        });
+
+        // Draw player
+        ctx.fillStyle = player.color;
+        ctx.fillRect(player.x * blockSize, player.y * blockSize, blockSize, blockSize);
+    }
+
+    function moveAnimals() {
+        animals.forEach(animal => {
+            if (Math.random() < 0.05) { // Change direction occasionally
+                let r = Math.random();
+                if (r < 0.25) { animal.dx = 1; animal.dy = 0; }
+                else if (r < 0.5) { animal.dx = -1; animal.dy = 0; }
+                else if (r < 0.75) { animal.dx = 0; animal.dy = 1; }
+                else { animal.dx = 0; animal.dy = -1; }
+            }
+
+            let newX = animal.x + animal.dx;
+            let newY = animal.y + animal.dy;
+
+            if (newX >= 0 && newX < worldWidth && newY >= 0 && newY < worldHeight) {
+                animal.x = newX;
+                animal.y = newY;
+            }
+        });
+    }
+
+
+    window.addEventListener('keydown', (e) => {
+        let newX = player.x;
+        let newY = player.y;
+
+        switch(e.key.toLowerCase()) {
+            case 'w': // Forward
+                newY--;
+                break;
+            case 's': // Backward
+                newY++;
+                break;
+            case 'd': // Left (as per user request)
+                newX--;
+                break;
+            case 'a': // Right (as per user request)
+                newX++;
+                break;
+        }
+
+        if (newX >= 0 && newX < worldWidth && newY >= 0 && newY < worldHeight) {
+            player.x = newX;
+            player.y = newY;
+        }
+    });
+
+    let mouseDownTime = 0;
+    let isHolding = false;
+
+    canvas.addEventListener('mousedown', (e) => {
+        isHolding = true;
+        mouseDownTime = Date.now();
+        setTimeout(() => {
+            if (isHolding) {
+                // Long press - mine block
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = Math.floor((e.clientX - rect.left) / blockSize);
+                const mouseY = Math.floor((e.clientY - rect.top) / blockSize);
+
+                if (world[mouseY] && world[mouseY][mouseX]) {
+                    console.log(`Mined block at (${mouseX}, ${mouseY})`);
+                    world[mouseY][mouseX] = null; // Remove block
+                }
+            }
+        }, 500); // 500ms for a long press
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+        isHolding = false;
+        const pressDuration = Date.now() - mouseDownTime;
+        if (pressDuration < 500) {
+            // Short click - attack
+            console.log("Attack!");
+            // Simple attack animation
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+            ctx.beginPath();
+            ctx.arc((player.x + 0.5) * blockSize, (player.y + 0.5) * blockSize, blockSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    });
+
+
+    function gameLoop() {
+        moveAnimals();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+
+</script>
+
+</body>
+</html>

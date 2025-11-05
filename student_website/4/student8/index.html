@@ -1,1 +1,160 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+<title>점프맵</title>
+<style>
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background-color: #87CEEB; /* Sky blue background */
+    }
+    #game-container {
+        width: 400px;
+        height: 600px;
+        background-color: #000; /* Black tower */
+        border: 5px solid #333;
+        position: relative;
+        overflow: hidden;
+    }
+    #player {
+        width: 30px;
+        height: 30px;
+        background-color: red;
+        position: absolute;
+        bottom: 50px;
+        left: 185px;
+    }
+    .platform {
+        width: 80px;
+        height: 15px;
+        background-color: #555;
+        position: absolute;
+    }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="player"></div>
+</div>
+
+<script>
+    const gameContainer = document.getElementById('game-container');
+    const player = document.getElementById('player');
+
+    let playerX = 185;
+    let playerY = 50;
+    let velocityY = 0;
+    const gravity = -0.5; // Gravity should pull the player down (negative Y)
+    const jumpPower = 12; // Jump should push the player up (positive Y)
+    let isOnGround = true; // Player starts on a platform
+    let keys = {};
+    let gameStarted = false;
+
+    const platforms = [
+        { x: 160, y: 50, width: 80 },
+        { x: 100, y: 150, width: 80 },
+        { x: 220, y: 250, width: 80 },
+        { x: 150, y: 350, width: 80 },
+        { x: 50, y: 450, width: 80 },
+        { x: 250, y: 550, width: 80 }
+    ];
+
+    function createPlatforms() {
+        platforms.forEach(p => {
+            const platform = document.createElement('div');
+            platform.classList.add('platform');
+            platform.style.left = p.x + 'px';
+            platform.style.bottom = p.y + 'px';
+            platform.style.width = p.width + 'px';
+            gameContainer.appendChild(platform);
+        });
+    }
+
+    function handleKeyPress(e) {
+        if (!gameStarted) {
+            gameStarted = true;
+        }
+        keys[e.code] = true;
+        if (e.code === 'Space' && isOnGround) {
+            velocityY = jumpPower;
+            isOnGround = false;
+        }
+    }
+
+    document.addEventListener('keydown', handleKeyPress);
+
+    document.addEventListener('keyup', (e) => {
+        keys[e.code] = false;
+    });
+
+    function gameLoop() {
+        if (gameStarted) {
+            // Player movement
+            if (keys['ArrowLeft']) {
+                playerX -= 5;
+            }
+            if (keys['ArrowRight']) {
+                playerX += 5;
+            }
+
+            const prevPlayerY = playerY;
+            
+            // Apply gravity and update position
+            velocityY += gravity;
+            playerY += velocityY;
+
+            // --- Collision Detection ---
+
+            // Assume player is in the air unless a landing is detected
+            isOnGround = false;
+
+            // 1. Platform Collision
+            platforms.forEach(p => {
+                const platformTop = p.y + 15; // 15 is platform height
+                const platformLeft = p.x;
+                const platformRight = p.x + p.width;
+
+                // Check for landing on a platform
+                if (
+                    velocityY <= 0 && // Player is falling
+                    prevPlayerY >= platformTop && // Previous position was above the platform
+                    playerY <= platformTop && // Current position is on or below the platform
+                    playerX + 30 > platformLeft && // Player's right edge is past platform's left
+                    playerX < platformRight      // Player's left edge is before platform's right
+                ) {
+                    playerY = platformTop; // Snap to the top of the platform
+                    velocityY = 0;
+                    isOnGround = true;
+                }
+            });
+
+            // 2. Side Wall Collision (prevents going outside the tower)
+            if (playerX < 0) playerX = 0;
+            if (playerX + 30 > 400) playerX = 370;
+            
+            // 3. Fall off the bottom (failure condition)
+            if (playerY < -30) { // Give some buffer before respawning
+                playerY = 50; // Respawn on the first platform
+                playerX = 185;
+                velocityY = 0;
+                isOnGround = true;
+            }
+        }
+
+        // Update player style
+        player.style.left = playerX + 'px';
+        player.style.bottom = playerY + 'px';
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    createPlatforms();
+    gameLoop();
+</script>
+
+</body>
+</html>

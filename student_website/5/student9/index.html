@@ -1,1 +1,76 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>영화, 드라마</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #333;
+        }
+        #movie-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+        }
+        .movie-box {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .movie-box:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>영화, 드라마</h1>
+    <div id="movie-container"></div>
+
+    <script>
+        const movies = [
+            "좀비버스",
+            "범죄도시4",
+            "타로",
+            "해피니스",
+            "청설",
+            "밤이 되었습니다",
+            "약한영웅",
+            "스물다섯 스물하나",
+            "좀비딸",
+            "부산행"
+        ];
+
+        const movieContainer = document.getElementById('movie-container');
+
+        movies.forEach(movieTitle => {
+            const movieBox = document.createElement('div');
+            movieBox.classList.add('movie-box');
+            movieBox.textContent = movieTitle;
+            movieBox.addEventListener('click', () => {
+                const youtubeSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(movieTitle + ' 예고편')}`;
+                window.open(youtubeSearchUrl, '_blank');
+            });
+            movieContainer.appendChild(movieBox);
+        });
+    </script>
+
+</body>
+</html>

@@ -1,1 +1,124 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>트랄랄라 게임</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            cursor: pointer;
+            background: linear-gradient(45deg, #ff9a9e 0%, #fad0c4 99%, #fad0c4 100%);
+        }
+
+        #container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .word {
+            position: absolute;
+            font-family: sans-serif;
+            font-weight: bold;
+            user-select: none;
+            animation: flyAndFade 3s forwards;
+            white-space: nowrap;
+        }
+
+        @keyframes flyAndFade {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1) rotate(0deg);
+            }
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -250%) scale(0.5) rotate(var(--random-rotate));
+            }
+        }
+
+        #title {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: rgba(255, 255, 255, 0.7);
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <h1 id="title">화면을 클릭해보세요!</h1>
+    </div>
+    
+    <script>
+        const container = document.getElementById('container');
+        const title = document.getElementById('title');
+
+        const words = [
+            'Cacasito', 'La vaca', 'Trippa', 'troppa', 'Bombombini', 'Gusini', 'Tralala', 'Lirilira', 'Tung',
+            'Satelito', 'Sahur', 'boneka', 'cappuccino', 'assasine', 'Tirilikalika', 'Trippi', 'Trenostruzzo',
+            'Turbo 3000', 'Crocodina', 'fruli', 'Crocodildo', 'Penosini', 'frulia', 'Bublito', 'Bandito', 'Traktorito',
+            '카카시토', '라 바카', '트리파', '트로파', '봄봄비니', '구지니', '트랄랄라', '리릴리', '릴라', '퉁',
+            '사텔리토', '사후르', '보네카', '카푸치노', '아사시니', '티릴리칼리카', '트리피', '트레스노트루죠',
+            '터보 3000', '크로코디나', '프룰리', '크로코딜도', '페노시니', '프룰라', '불비토', '밴디토', '트랙토리토'
+        ];
+
+        let hasClicked = false;
+
+        function createWord(x, y) {
+            if (!hasClicked) {
+                title.style.display = 'none';
+                hasClicked = true;
+            }
+
+            const wordEl = document.createElement('div');
+            wordEl.className = 'word';
+            
+            // Pick a random word
+            const randomWord = words[Math.floor(Math.random() * words.length)];
+            wordEl.textContent = randomWord;
+            
+            // Position
+            wordEl.style.left = x + 'px';
+            wordEl.style.top = y + 'px';
+
+            // Random color
+            const randomColor = `hsl(${Math.random() * 360}, 90%, 60%)`;
+            wordEl.style.color = randomColor;
+
+            // Random size
+            wordEl.style.fontSize = (Math.random() * 30 + 15) + 'px';
+
+            // Random rotation for animation
+            const randomRotate = (Math.random() - 0.5) * 180;
+            wordEl.style.setProperty('--random-rotate', randomRotate + 'deg');
+
+            container.appendChild(wordEl);
+
+            // Remove from DOM after animation
+            setTimeout(() => {
+                wordEl.remove();
+            }, 3000);
+        }
+
+        document.addEventListener('click', (e) => {
+            createWord(e.clientX, e.clientY);
+        });
+
+        document.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            for (let i = 0; i < e.touches.length; i++) {
+                createWord(e.touches[i].clientX, e.touches[i].clientY);
+            }
+        }, { passive: false });
+
+    </script>
+</body>
+</html>

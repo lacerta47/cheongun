@@ -1,1 +1,357 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>My Snake Game</title>
+
+    <style>
+
+        body {
+
+            display: flex;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            justify-content: center;
+
+            height: 100vh;
+
+            margin: 0;
+
+            background-color: #333;
+
+            font-family: 'Arial', sans-serif;
+
+            color: white;
+
+        }
+
+        h1 { margin-bottom: 10px; }
+
+        #gameCanvas {
+
+            background-color: black;
+
+            border: 2px solid white;
+
+        }
+
+        #controls { margin-top: 10px; }
+
+        button { padding: 5px 10px; font-size: 14px; cursor: pointer; }
+
+        #startScreen {
+
+            display: flex;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            justify-content: center;
+
+            text-align: center;
+
+            background-color: #222;
+
+            padding: 30px;
+
+            border-radius: 15px;
+
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+
+        }
+
+        #startScreen h1 {
+
+            color: #0f0;
+
+            margin-bottom: 20px;
+
+        }
+
+        #startScreen p {
+
+            font-size: 1.2em;
+
+            margin-bottom: 30px;
+
+        }
+
+        #startScreen button {
+
+            background-color: #0f0;
+
+            color: #333;
+
+            border: none;
+
+            padding: 15px 30px;
+
+            font-size: 1.5em;
+
+            border-radius: 8px;
+
+            cursor: pointer;
+
+            transition: background-color 0.3s ease;
+
+        }
+
+        #startScreen button:hover {
+
+            background-color: #0c0;
+
+        }
+
+    </style>
+
+</head>
+
+<body>
+    <div id="startScreen">
+        <h1>나만의 멋진 스네이크 게임</h1>
+        <p>화살표 키로 뱀을 조종하세요!</p>
+        <button id="startButton">게임 시작</button>
+    </div>
+
+    <h1 id="gameTitle" style="display: none;">나만의 멋진 스네이크 게임</h1>
+    <canvas id="gameCanvas" style="display: none;"></canvas>
+    <p id="scoreDisplay" style="display: none;">Score: <span id="score">0</span></p>
+    <div id="controls" style="display: none;">
+        <button id="muteBtn">Mute</button>
+    </div>
+
+    <script>
+        const startScreen = document.getElementById('startScreen');
+        const startButton = document.getElementById('startButton');
+        const gameTitle = document.getElementById('gameTitle');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const scoreElement = document.getElementById('score');
+        const muteBtn = document.getElementById('muteBtn');
+
+        // --- Sound Engine ---
+        let audioCtx;
+        let isMuted = false;
+        let bgmNode;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playTone(freq, duration, type = 'sine') {
+            if (isMuted || !audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+
+        function playFoodSound() { playTone(440, 0.1, 'square'); playTone(880, 0.1, 'square'); }
+        function playGameOverSound() { playTone(164, 0.4, 'sawtooth'); }
+
+        const bgmPattern = [261, 293, 329, 261];
+        let bgmIndex = 0;
+        function playBgm() {
+            if (isMuted) return;
+            playTone(bgmPattern[bgmIndex % bgmPattern.length], 0.2, 'triangle');
+            bgmIndex++;
+            bgmNode = setTimeout(playBgm, 400);
+        }
+
+        muteBtn.addEventListener('click', () => {
+            isMuted = !isMuted;
+            muteBtn.textContent = isMuted ? 'Unmute' : 'Mute';
+            if (!isMuted && !bgmNode) {
+                initAudio();
+                playBgm();
+            } else if (isMuted && bgmNode) {
+                clearTimeout(bgmNode);
+                bgmNode = null;
+            }
+        });
+        // --- End Sound Engine ---
+
+        const GRID_SIZE = 28;
+        const TILE_COUNT = 28;
+        canvas.width = canvas.height = GRID_SIZE * TILE_COUNT;
+
+        const SNAKE_COLOR = 'green';
+        const FOOD_COLOR = 'red';
+        const FOOD_SHAPE = 'square'; // New: Food Shape
+        const GAME_INITIAL_SPEED = 150; // New: Game Initial Speed
+
+        let snake = [ {x: 10, y: 10} ];
+        let food = {};
+        let score = 0;
+        let dx = 0;
+        let dy = 0;
+        let changingDirection = false;
+
+        function main() {
+            if (didGameEnd()) {
+                playGameOverSound();
+                alert(`게임 오버! 점수: ${score}. 다시 시작하려면 확인을 누르세요.`);
+                document.location.reload();
+                return;
+            }
+
+            setTimeout(function onTick() {
+                changingDirection = false;
+                clearCanvas();
+                drawFood();
+                moveSnake();
+                drawSnake();
+                main();
+            }, GAME_INITIAL_SPEED - (score * 0.5)); // Modified to use GAME_INITIAL_SPEED
+        }
+
+        function clearCanvas() {
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function drawSnake() {
+            snake.forEach((part, index) => {
+                ctx.fillStyle = SNAKE_COLOR;
+                if (index === 0) { // Snake head
+                    ctx.fillRect(part.x * GRID_SIZE, part.y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                    // Draw eyes for a simple dot-like head
+                    ctx.fillStyle = 'black';
+                    let eyeSize = GRID_SIZE / 5;
+                    let eyeOffset = GRID_SIZE / 4;
+                    if (dx === 1) { // Right
+                        ctx.fillRect(part.x * GRID_SIZE + eyeOffset, part.y * GRID_SIZE + eyeOffset, eyeSize, eyeSize);
+                        ctx.fillRect(part.x * GRID_SIZE + eyeOffset, part.y * GRID_SIZE + GRID_SIZE - eyeOffset - eyeSize, eyeSize, eyeSize);
+                    } else if (dx === -1) { // Left
+                        ctx.fillRect(part.x * GRID_SIZE + GRID_SIZE - eyeOffset - eyeSize, part.y * GRID_SIZE + eyeOffset, eyeSize, eyeSize);
+                        ctx.fillRect(part.x * GRID_SIZE + GRID_SIZE - eyeOffset - eyeSize, part.y * GRID_SIZE + GRID_SIZE - eyeOffset - eyeSize, eyeSize, eyeSize);
+                    } else if (dy === 1) { // Down
+                        ctx.fillRect(part.x * GRID_SIZE + eyeOffset, part.y * GRID_SIZE + eyeOffset, eyeSize, eyeSize);
+                        ctx.fillRect(part.x * GRID_SIZE + GRID_SIZE - eyeOffset - eyeSize, part.y * GRID_SIZE + eyeOffset, eyeSize, eyeSize);
+                    } else if (dy === -1) { // Up
+                        ctx.fillRect(part.x * GRID_SIZE + eyeOffset, part.y * GRID_SIZE + GRID_SIZE - eyeOffset - eyeSize, eyeSize, eyeSize);
+                        ctx.fillRect(part.x * GRID_SIZE + GRID_SIZE - eyeOffset - eyeSize, part.y * GRID_SIZE + GRID_SIZE - eyeOffset - eyeSize, eyeSize, eyeSize);
+                    }
+                } else {
+                    ctx.fillRect(part.x * GRID_SIZE, part.y * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+                }
+            });
+        }
+
+        function moveSnake() {
+            const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                scoreElement.textContent = score;
+                playFoodSound();
+                createFood();
+            } else {
+                snake.pop();
+            }
+        }
+
+        function createFood() {
+            food.x = Math.floor(Math.random() * TILE_COUNT);
+            food.y = Math.floor(Math.random() * TILE_COUNT);
+            // Prevent food from spawning on the snake
+            snake.forEach(part => {
+                if (part.x === food.x && part.y === food.y) createFood();
+            });
+        }
+
+        function drawFood() {
+            ctx.fillStyle = FOOD_COLOR;
+            ctx.strokeStyle = 'white'; // Border color
+            ctx.lineWidth = 2; // Border width
+            const x = food.x * GRID_SIZE;
+            const y = food.y * GRID_SIZE;
+            const halfGrid = GRID_SIZE / 2;
+
+            if (FOOD_SHAPE === 'circle') {
+                ctx.beginPath();
+                ctx.arc(x + halfGrid, y + halfGrid, halfGrid, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.stroke(); // Draw the border
+            } else if (FOOD_SHAPE === 'triangle') {
+                ctx.beginPath();
+                ctx.moveTo(x + halfGrid, y); // Top center
+                ctx.lineTo(x + GRID_SIZE, y + GRID_SIZE); // Bottom right
+                ctx.lineTo(x, y + GRID_SIZE); // Bottom left
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke(); // Draw the border
+            } else { // Default to 'square'
+                ctx.fillRect(x, y, GRID_SIZE, GRID_SIZE);
+                ctx.strokeRect(x, y, GRID_SIZE, GRID_SIZE); // Draw the border for square
+            }
+        }
+
+        function changeDirection(event) {
+            if (changingDirection) return;
+            changingDirection = true;
+
+            // Initialize audio on first interaction
+            initAudio();
+            if (!bgmNode && !isMuted) playBgm();
+
+            const keyPressed = event.key;
+            const goingUp = dy === -1;
+            const goingDown = dy === 1;
+            const goingRight = dx === 1;
+            const goingLeft = dx === -1;
+
+            if (keyPressed === 'ArrowLeft' && !goingRight) { dx = -1; dy = 0; }
+            if (keyPressed === 'ArrowUp' && !goingDown) { dx = 0; dy = -1; }
+            if (keyPressed === 'ArrowRight' && !goingLeft) { dx = 1; dy = 0; }
+            if (keyPressed === 'ArrowDown' && !goingUp) { dx = 0; dy = 1; }
+        }
+        
+        function didGameEnd() {
+            for (let i = 4; i < snake.length; i++) {
+                if (snake[i].x === snake[0].x && snake[i].y === snake[0].y) return true;
+            }
+            const hitLeftWall = snake[0].x < 0;
+            const hitRightWall = snake[0].x > TILE_COUNT - 1;
+            const hitTopWall = snake[0].y < 0;
+            const hitBottomWall = snake[0].y > TILE_COUNT - 1;
+            return hitLeftWall || hitRightWall || hitTopWall || hitBottomWall;
+        }
+
+        document.addEventListener('keydown', changeDirection);
+
+        startButton.addEventListener('click', () => {
+            startScreen.style.display = 'none';
+            gameTitle.style.display = 'block';
+            canvas.style.display = 'block';
+            scoreDisplay.style.display = 'block';
+            controls.style.display = 'block'; // Show controls div
+            createFood();
+            main();
+        });
+
+    </script>
+</body>
+
+</html>

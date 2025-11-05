@@ -1,1 +1,403 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>평범한 RPG 게임</title>
+    <style>
+        body {
+            background-color: #333;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+        }
+        h1 {
+            color: #eee;
+        }
+        #game-container {
+            display: flex;
+            gap: 20px;
+        }
+        #game-world {
+            width: 600px;
+            height: 400px;
+            border: 2px solid #666;
+            position: relative;
+            overflow: hidden;
+            background-color: #4CAF50; /* Grassy field */
+        }
+        .game-object {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+        }
+        #player {
+            background-color: blue;
+        }
+        .monster {
+            background-color: red;
+        }
+        .item {
+            background-color: gold;
+        }
+        #ui-container {
+            width: 200px;
+            border: 2px solid #666;
+            padding: 10px;
+            background-color: #444;
+        }
+        #log {
+            height: 150px;
+            overflow-y: scroll;
+            border: 1px solid #555;
+            padding: 5px;
+            margin-bottom: 10px;
+            background-color: #222;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>평범한 RPG 게임</h1>
+
+    <div id="game-container">
+        <div id="game-world">
+            <div id="player" class="game-object"></div>
+        </div>
+        <div id="ui-container">
+            <h2>로그</h2>
+            <div id="log"></div>
+            <h2>인벤토리</h2>
+            <div id="inventory"></div>
+            <h2>퀘스트</h2>
+            <div id="quests"></div>
+            <h2>상점</h2>
+            <div id="shop"></div>
+        </div>
+    </div>
+
+    <script>
+        const gameWorld = document.getElementById('game-world');
+        const player = document.getElementById('player');
+        const logDiv = document.getElementById('log');
+        const inventoryDiv = document.getElementById('inventory');
+        const questsDiv = document.getElementById('quests');
+        const shopDiv = document.getElementById('shop');
+
+        let playerState = {
+            x: 50,
+            y: 50,
+            attack: 1,
+            inventory: {},
+            quests: {},
+            inDungeon: false
+        };
+
+        const worldState = {
+            monsters: [
+                { id: 1, type: 'zombie', x: 100, y: 100, hp: 3 },
+                { id: 2, type: 'skeleton', x: 200, y: 150, hp: 2 },
+                { id: 3, type: 'slime', x: 150, y: 250, hp: 1 }
+            ],
+            items: [
+                { id: 1, type: 'wood', x: 30, y: 80 },
+                { id: 2, type: 'stone', x: 180, y: 300 }
+            ],
+            npcs: [
+                { id: 1, name: 'Quest Giver', x: 250, y: 50, quest: 'slime_hunt' }
+            ],
+            shops: [
+                { id: 1, name: '상점', x: 100, y: 200, items: [{name: '나무검', cost: {wood: 10}, attack: 2}] }
+            ],
+            dungeons: [
+                { id: 1, name: '슬라임 던전', x: 300, y: 300, boss: { name: '슬라임 킹', hp: 10, attack: 3 } }
+            ]
+        };
+
+        function log(message) {
+            logDiv.innerHTML += `<p>${message}</p>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updatePlayerPosition() {
+            player.style.left = playerState.x + 'px';
+            player.style.top = playerState.y + 'px';
+
+            // Map expansion
+            if (playerState.x > gameWorld.offsetWidth - 30) {
+                gameWorld.style.width = (gameWorld.offsetWidth + 100) + 'px';
+            }
+            if (playerState.y > gameWorld.offsetHeight - 30) {
+                gameWorld.style.height = (gameWorld.offsetHeight + 100) + 'px';
+            }
+        }
+
+        function drawWorld() {
+            // Clear previous elements
+            document.querySelectorAll('.monster, .item, .npc').forEach(el => el.remove());
+
+            // Draw monsters
+            worldState.monsters.forEach(monster => {
+                const monsterEl = document.createElement('div');
+                monsterEl.className = 'game-object monster';
+                monsterEl.style.left = monster.x + 'px';
+                monsterEl.style.top = monster.y + 'px';
+                monsterEl.dataset.id = monster.id;
+                gameWorld.appendChild(monsterEl);
+            });
+
+            // Draw items
+            worldState.items.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'game-object item';
+                itemEl.style.left = item.x + 'px';
+                itemEl.style.top = item.y + 'px';
+                itemEl.dataset.id = item.id;
+                gameWorld.appendChild(itemEl);
+            });
+
+            // Draw shops
+            worldState.shops.forEach(shop => {
+                const shopEl = document.createElement('div');
+                shopEl.className = 'game-object';
+                shopEl.style.left = shop.x + 'px';
+                shopEl.style.top = shop.y + 'px';
+                shopEl.style.backgroundColor = 'purple';
+                shopEl.dataset.id = shop.id;
+                gameWorld.appendChild(shopEl);
+            });
+
+            // Draw dungeons
+            worldState.dungeons.forEach(dungeon => {
+                const dungeonEl = document.createElement('div');
+                dungeonEl.className = 'game-object';
+                dungeonEl.style.left = dungeon.x + 'px';
+                dungeonEl.style.top = dungeon.y + 'px';
+                dungeonEl.style.backgroundColor = 'black';
+                dungeonEl.dataset.id = dungeon.id;
+                gameWorld.appendChild(dungeonEl);
+            });
+        }
+
+
+        function updateUI() {
+            // Update inventory
+            inventoryDiv.innerHTML = '';
+            for (const item in playerState.inventory) {
+                inventoryDiv.innerHTML += `<p>${item}: ${playerState.inventory[item]}</p>`;
+            }
+
+            // Update quests
+            questsDiv.innerHTML = '';
+            for (const questName in playerState.quests) {
+                const quest = playerState.quests[questName];
+                let status = quest.completed ? '완료' : '진행중';
+                if (questName === 'slime_hunt') {
+                    questsDiv.innerHTML += `<p>슬라임 사냥: ${quest.slimesKilled}/3 (${status})</p>`;
+                }
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            const speed = 10;
+            switch (e.key) {
+                case 'w': playerState.y -= speed; break;
+                case 's': playerState.y += speed; break;
+                case 'a': playerState.x -= speed; break;
+                case 'd': playerState.x += speed; break;
+                case 'f': attack(); break;
+                case 'g': interact(); break;
+            }
+            // World boundary checks
+            playerState.x = Math.max(0, Math.min(playerState.x, gameWorld.offsetWidth - 20));
+            playerState.y = Math.max(0, Math.min(playerState.y, gameWorld.offsetHeight - 20));
+
+            updatePlayerPosition();
+        });
+
+        function attack() {
+            log("공격!");
+            worldState.monsters.forEach((monster, index) => {
+                const dx = playerState.x - monster.x;
+                const dy = playerState.y - monster.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 30) { // Attack range
+                    monster.hp -= playerState.attack;
+                    log(`${monster.type}을(를) 공격했다! 남은 HP: ${monster.hp}`);
+                    if (monster.hp <= 0) {
+                        log(`${monster.type}을(를) 처치했다!`);
+                        if (monster.type === 'slime' && playerState.quests['slime_hunt'] && !playerState.quests['slime_hunt'].completed) {
+                            playerState.quests['slime_hunt'].slimesKilled++;
+                            updateUI();
+                            if (playerState.quests['slime_hunt'].slimesKilled >= 3) {
+                                playerState.quests['slime_hunt'].completed = true;
+                                log("슬라임 3마리 처치 퀘스트 완료!");
+                                // Add reward here in the future
+                            }
+                        }
+                        worldState.monsters.splice(index, 1);
+                        // Simple respawn logic
+                        setTimeout(spawnMonster, 3000);
+                        drawWorld();
+                    }
+                }
+            });
+        }
+
+        function interact() {
+            log("상호작용!");
+            // Check for items
+            worldState.items.forEach((item, index) => {
+                const dx = playerState.x - item.x;
+                const dy = playerState.y - item.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 25) {
+                    log(`${item.type}을(를) 주웠다.`);
+                    playerState.inventory[item.type] = (playerState.inventory[item.type] || 0) + 1;
+                    worldState.items.splice(index, 1);
+                    updateUI();
+                    drawWorld();
+                    return; // Interact with one thing at a time
+                }
+            });
+
+            // Check for NPCs
+            worldState.npcs.forEach(npc => {
+                const dx = playerState.x - npc.x;
+                const dy = playerState.y - npc.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 25) {
+                    if (npc.quest && !playerState.quests[npc.quest]) {
+                        log(`[${npc.name}]: 슬라임을 3마리 잡아주세요!`);
+                        playerState.quests[npc.quest] = { completed: false, slimesKilled: 0 };
+                        updateUI();
+                    }
+                }
+            });
+
+            // Check for Shops
+            worldState.shops.forEach(shop => {
+                const dx = playerState.x - shop.x;
+                const dy = playerState.y - shop.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 25) {
+                    openShop(shop);
+                }
+            });
+
+            // Check for Dungeons
+            worldState.dungeons.forEach(dungeon => {
+                const dx = playerState.x - dungeon.x;
+                const dy = playerState.y - dungeon.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < 25) {
+                    enterDungeon(dungeon);
+                }
+            });
+        }
+
+        function openShop(shop) {
+            shopDiv.innerHTML = ''; // Clear shop
+            log(`[${shop.name}]에 오신 것을 환영합니다!`);
+            shop.items.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.innerHTML = `<p>${item.name} (공격력: ${item.attack}) - 가격: 나무 ${item.cost.wood}개</p>`;
+                const buyButton = document.createElement('button');
+                buyButton.textContent = '구매';
+                buyButton.onclick = () => {
+                    if (playerState.inventory.wood >= item.cost.wood) {
+                        playerState.inventory.wood -= item.cost.wood;
+                        playerState.attack = item.attack;
+                        log(`${item.name}을(를) 구매했습니다!`);
+                        updateUI();
+                    } else {
+                        log('재료가 부족합니다.');
+                    }
+                };
+                itemEl.appendChild(buyButton);
+                shopDiv.appendChild(itemEl);
+            });
+        }
+
+        function spawnMonster() {
+            const types = ['zombie', 'skeleton', 'slime'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            const newMonster = {
+                id: Date.now(),
+                type: type,
+                x: Math.random() * (gameWorld.offsetWidth - 20),
+                y: Math.random() * (gameWorld.offsetHeight - 20),
+                hp: type === 'zombie' ? 3 : (type === 'skeleton' ? 2 : 1)
+            };
+            worldState.monsters.push(newMonster);
+            log(`${newMonster.type}이(가) 나타났다!`);
+            drawWorld();
+        }
+
+        function spawnItem() {
+            if (playerState.inDungeon) return; // No item spawning in dungeon
+            const types = ['wood', 'stone', 'iron', 'diamond', 'copper'];
+            const type = types[Math.floor(Math.random() * types.length)];
+            const newItem = {
+                id: Date.now(),
+                type: type,
+                x: Math.random() * (gameWorld.offsetWidth - 20),
+                y: Math.random() * (gameWorld.offsetHeight - 20),
+            };
+            worldState.items.push(newItem);
+            log(`${newItem.type}이(가) 나타났다!`);
+            drawWorld();
+        }
+
+
+        function gameLoop() {
+            // In a real game, you'd have more complex logic here.
+            // For now, we just initialize.
+        }
+
+        function enterDungeon(dungeon) {
+            if (playerState.inDungeon) return;
+            log(`[${dungeon.name}]에 입장했습니다.`);
+            playerState.inDungeon = true;
+            gameWorld.style.backgroundColor = '#6a0dad'; // Purple for dungeon
+            worldState.monsters = []; // Clear other monsters
+            const boss = dungeon.boss;
+            worldState.monsters.push({ id: 'boss', type: boss.name, x: 300, y: 200, hp: boss.hp, attack: boss.attack });
+            drawWorld();
+
+            const leaveButton = document.createElement('button');
+            leaveButton.textContent = '던전 나가기';
+            leaveButton.onclick = leaveDungeon;
+            shopDiv.appendChild(leaveButton); // Using shopDiv for convenience
+        }
+
+        function leaveDungeon() {
+            log("던전에서 나갑니다.");
+            playerState.inDungeon = false;
+            gameWorld.style.backgroundColor = '#4CAF50'; // Grassy field
+            worldState.monsters = []; // Clear boss
+            shopDiv.innerHTML = ''; // Clear leave button
+            // Respawn normal monsters
+            for(let i=0; i<3; i++) spawnMonster();
+            drawWorld();
+        }
+        log("게임 시작! WASD로 이동, F로 공격, G로 상호작용하세요.");
+        updatePlayerPosition();
+        drawWorld();
+        updateUI();
+        gameLoop();
+
+        setInterval(spawnItem, 10000); // Spawn an item every 10 seconds
+
+    </script>
+
+</body>
+</html>

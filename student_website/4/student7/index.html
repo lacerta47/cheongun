@@ -1,1 +1,642 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>나만의 블록깨기 게임</title>
+
+    <style>
+
+                body {
+
+                    display: flex;
+
+                    flex-direction: column;
+
+                    align-items: center;
+
+                    justify-content: center;
+
+                    height: 100vh;
+
+                    margin: 0;
+
+                    background-color: #333;
+
+                    font-family: 'Arial', sans-serif;
+
+                    color: white;
+
+                }
+
+                h1 { margin-bottom: 10px; }
+
+                #gameCanvas {
+
+                    background-color: #000;
+
+                    border: 2px solid white;
+
+                }
+
+        #controls { margin-top: 10px; }
+
+        button { padding: 5px 10px; font-size: 14px; cursor: pointer; }
+
+        #startScreen {
+
+            display: flex;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            justify-content: center;
+
+            text-align: center;
+
+            background-color: #222;
+
+            padding: 30px;
+
+            border-radius: 15px;
+
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+
+        }
+
+        #startScreen h1 {
+
+            color: #0f0;
+
+            margin-bottom: 20px;
+
+        }
+
+        #startScreen p {
+
+            font-size: 1.2em;
+
+            margin-bottom: 30px;
+
+        }
+
+        #startScreen button {
+
+            background-color: #0f0;
+
+            color: #333;
+
+            border: none;
+
+            padding: 15px 30px;
+
+            font-size: 1.5em;
+
+            border-radius: 8px;
+
+            cursor: pointer;
+
+            transition: background-color 0.3s ease;
+
+        }
+
+        #startScreen button:hover {
+
+            background-color: #0c0;
+
+        }
+
+
+
+    </style>
+
+</head>
+
+<body>
+
+
+
+    <div id="startScreen">
+
+        <h1>나만의 멋진 블록깨기 게임</h1>
+
+        <p>← → 화살표 키로 패들을 움직여 공을 튕겨 블록을 깨세요!</p>
+
+        <button id="startButton">게임 시작</button>
+
+    </div>
+
+
+
+    <h1 id="gameTitle" style="display: none;">나만의 멋진 블록깨기 게임</h1>
+
+    <canvas id="gameCanvas" style="display: none;"></canvas>
+
+    <p id="scoreDisplay" style="display: none;">점수: <span id="score">0</span></p>
+
+    <div id="controls" style="display: none;">
+
+        <button id="muteBtn">Mute</button>
+
+    </div>
+
+
+
+    <div id="gameOverScreen" style="display: none; text-align: center; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: #222; padding: 30px; border-radius: 15px; box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);">
+
+        <h1 style="color: #f00;">게임 오버!</h1>
+
+        <p>점수: <span id="finalScore">0</span></p>
+
+        <button id="restartButton">다시 시작</button>
+
+    </div>
+
+
+
+    <script>
+
+                const startScreen = document.getElementById('startScreen');
+
+                const gameTitle = document.getElementById('gameTitle');
+
+                const canvas = document.getElementById('gameCanvas'); // Corrected ID
+
+                const ctx = canvas.getContext('2d');
+
+                const scoreDisplay = document.getElementById('scoreDisplay');
+
+                const scoreElement = document.getElementById('score');
+
+                const muteBtn = document.getElementById('muteBtn');
+
+                const controls = document.getElementById('controls');
+
+
+
+        // --- Sound Engine ---
+
+        let audioCtx;
+
+        let isMuted = false;
+
+        let bgmNode;
+
+
+
+        function initAudio() {
+
+            if (!audioCtx) {
+
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            }
+
+        }
+
+
+
+        function playTone(freq, duration, type = 'sine') {
+
+            if (isMuted || !audioCtx) return;
+
+            const oscillator = audioCtx.createOscillator();
+
+            const gainNode = audioCtx.createGain();
+
+            oscillator.connect(gainNode);
+
+            gainNode.connect(audioCtx.destination);
+
+
+
+            oscillator.type = type;
+
+            oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+            oscillator.start();
+
+            oscillator.stop(audioCtx.currentTime + duration);
+
+        }
+
+
+
+        function playPaddleSound() { playTone(220, 0.05, 'square'); }
+
+        function playBrickSound() { playTone(440, 0.05, 'triangle'); }
+
+        function playGameOverSound() { playTone(110, 0.5, 'sawtooth'); }
+
+
+
+        const bgmPattern = [329, 392, 440, 392];
+
+        let bgmIndex = 0;
+
+        function playBgm() {
+
+            if (isMuted) return;
+
+            playTone(bgmPattern[bgmIndex % bgmPattern.length], 0.15, 'sine');
+
+            bgmIndex++;
+
+            bgmNode = setTimeout(playBgm, 200);
+
+        }
+
+
+
+        muteBtn.addEventListener('click', () => {
+
+            isMuted = !isMuted;
+
+            muteBtn.textContent = isMuted ? 'Unmute' : 'Mute';
+
+            if (!isMuted && !bgmNode) {
+
+                initAudio();
+
+                playBgm();
+
+            } else if (isMuted && bgmNode) {
+
+                clearTimeout(bgmNode);
+
+                bgmNode = null;
+
+            }
+
+        });
+
+        // --- End Sound Engine ---
+
+
+
+        canvas.width = 480;
+
+        canvas.height = 320;
+
+
+
+        let score = 0;
+
+
+
+        // Ball properties
+
+        let ballRadius = 10;
+
+        let x = canvas.width / 2;
+
+        let y = canvas.height - 30;
+
+        let dx = 2;
+
+        let dy = -2;
+
+
+
+        // Paddle properties
+
+        let paddleHeight = 10;
+
+        let paddleWidth = 75;
+
+        let paddleX = (canvas.width - paddleWidth) / 2;
+
+        const paddleColor = 'green';
+
+
+
+        // Brick properties
+
+        const brickRowCount = 5;
+
+        const brickColumnCount = 5;
+
+        const brickWidth = 81.4;
+
+        const brickHeight = 20.6;
+
+        const brickPadding = 5;
+
+        const brickOffsetTop = 30;
+
+        const brickOffsetLeft = 24.0;
+
+
+
+        let bricks = [];
+
+        for (let c = 0; c < brickColumnCount; c++) {
+
+            bricks[c] = [];
+
+            for (let r = 0; r < brickRowCount; r++) {
+
+                bricks[c][r] = { x: 0, y: 0, status: 1, color: '' };
+
+                if ('rainbow' === 'rainbow') {
+
+                    const rainbowColors = ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3'];
+
+                    bricks[c][r].color = rainbowColors[r % rainbowColors.length];
+
+                } else {
+
+                    bricks[c][r].color = 'green';
+
+                }
+
+            }
+
+        }
+
+
+
+        document.addEventListener('keydown', keyDownHandler, false);
+
+        document.addEventListener('keyup', keyUpHandler, false);
+
+
+
+        let rightPressed = false;
+
+        let leftPressed = false;
+
+
+
+        function keyDownHandler(e) {
+
+            initAudio(); // Initialize audio on first interaction
+
+            if (!bgmNode && !isMuted) playBgm();
+
+
+
+            if (e.key === 'Right' || e.key === 'ArrowRight') {
+
+                rightPressed = true;
+
+            } else if (e.key === 'Left' || e.key === 'ArrowLeft') {
+
+                leftPressed = true;
+
+            }
+
+        }
+
+
+
+        function keyUpHandler(e) {
+
+            if (e.key === 'Right' || e.key === 'ArrowRight') {
+
+                rightPressed = false;
+
+            } else if (e.key === 'Left' || e.key === 'ArrowLeft') {
+
+                leftPressed = false;
+
+            }
+
+        }
+
+
+
+        function drawBall() {
+
+            ctx.beginPath();
+
+            ctx.arc(x, y, ballRadius, 0, Math.PI * 2);
+
+            ctx.fillStyle = '#0095DD';
+
+            ctx.fill();
+
+            ctx.closePath();
+
+        }
+
+
+
+        function drawPaddle() {
+
+            ctx.beginPath();
+
+            ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
+
+            ctx.fillStyle = paddleColor;
+
+            ctx.fill();
+
+            ctx.closePath();
+
+        }
+
+
+
+        function drawBricks() {
+
+            for (let c = 0; c < brickColumnCount; c++) {
+
+                for (let r = 0; r < brickRowCount; r++) {
+
+                    if (bricks[c][r].status === 1) {
+
+                        let brickX = (c * (brickWidth + brickPadding)) + brickOffsetLeft;
+
+                        let brickY = (r * (brickHeight + brickPadding)) + brickOffsetTop;
+
+                        bricks[c][r].x = brickX;
+
+                        bricks[c][r].y = brickY;
+
+                        ctx.beginPath();
+
+                        ctx.rect(brickX, brickY, brickWidth, brickHeight);
+
+                        ctx.fillStyle = bricks[c][r].color;
+
+                        ctx.fill();
+
+                        ctx.closePath();
+
+                    }
+
+                }
+
+            }
+
+        }
+
+
+
+        function collisionDetection() {
+
+            for (let c = 0; c < brickColumnCount; c++) {
+
+                for (let r = 0; r < brickRowCount; r++) {
+
+                    let b = bricks[c][r];
+
+                    if (b.status === 1) {
+
+                        if (x > b.x && x < b.x + brickWidth && y > b.y && y < b.y + brickHeight) {
+
+                            dy = -dy;
+
+                            b.status = 0;
+
+                            playBrickSound();
+
+                            score += 10;
+
+                            scoreElement.textContent = score;
+
+                            if (score === brickRowCount * brickColumnCount * 10) {
+
+                                alert('축하합니다! 모든 블록을 깼습니다!');
+
+                                document.location.reload();
+
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            }
+
+        }
+
+
+
+        let animationFrameId;
+
+
+
+        function draw() {
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            drawBricks();
+
+            drawBall();
+
+            drawPaddle();
+
+            collisionDetection();
+
+
+
+            if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
+
+                dx = -dx;
+
+            }
+
+            if (y + dy < ballRadius) {
+
+                dy = -dy;
+
+            } else if (y + dy > canvas.height - ballRadius) {
+
+                if (x > paddleX && x < paddleX + paddleWidth) {
+
+                    dy = -dy;
+
+                    playPaddleSound();
+
+                } else {
+
+                    cancelAnimationFrame(animationFrameId);
+
+                    playGameOverSound();
+
+                    document.getElementById('finalScore').textContent = score;
+                    document.getElementById('gameOverScreen').style.display = 'block';
+                    return;
+
+                }
+
+            }
+
+
+
+            if (rightPressed && paddleX < canvas.width - paddleWidth) {
+
+                paddleX += 7;
+
+            }
+
+            else if (leftPressed && paddleX > 0) {
+
+                paddleX -= 7;
+
+            }
+
+
+
+            x += dx;
+
+            y += dy;
+
+            animationFrameId = requestAnimationFrame(draw);
+
+        }
+
+
+
+        // Initial call to draw() is now moved to startButton click event
+
+        // draw();
+
+
+
+                const startButton = document.getElementById('startButton');
+        startButton.addEventListener('click', () => {
+
+            startScreen.style.display = 'none';
+
+            gameTitle.style.display = 'block';
+
+            canvas.style.display = 'block';
+
+            scoreDisplay.style.display = 'block';
+
+            controls.style.display = 'block';
+
+            draw(); // Start the game loop
+
+        });
+
+
+
+        document.getElementById('restartButton').addEventListener('click', () => {
+
+            document.location.reload();
+
+        });
+
+
+
+    </script>
+
+</body>
+
+</html>

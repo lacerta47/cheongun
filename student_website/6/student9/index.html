@@ -1,1 +1,263 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>공피하기</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+        canvas {
+            border: 1px solid white;
+        }
+        #gameOverScreen {
+            display: none;
+            position: absolute;
+            color: white;
+            text-align: center;
+            font-size: 2em;
+        }
+        #restartButton {
+            font-size: 0.8em;
+            padding: 10px 20px;
+            margin-top: 20px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+<div id="gameOverScreen">
+    <h1>게임 오버!</h1>
+    <p>생존 시간: <span id="survivalTime">0</span>초</p>
+    <button id="restartButton">다시 시작</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const survivalTimeSpan = document.getElementById('survivalTime');
+    const restartButton = document.getElementById('restartButton');
+
+    canvas.width = 800;
+    canvas.height = 600;
+
+    // Player
+    const player = {
+        x: canvas.width / 2,
+        y: canvas.height / 2,
+        radius: 15,
+        color: 'white',
+        speed: 5,
+        dx: 0,
+        dy: 0
+    };
+
+    // Enemies
+    let enemies = [];
+    const enemyRadius = 10;
+    const enemySpeed = 2;
+
+    // Game state
+    let startTime;
+    let isGameOver = false;
+    let enemySpawnInterval = 1000; // 1 second
+    let lastSpawnTime = 0;
+
+    const keys = {
+        w: false,
+        a: false,
+        s: false,
+        d: false
+    };
+
+    function drawPlayer() {
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+        ctx.fillStyle = player.color;
+        ctx.fill();
+        ctx.closePath();
+    }
+
+    function drawEnemies() {
+        enemies.forEach(enemy => {
+            ctx.beginPath();
+            ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+            ctx.fillStyle = 'red';
+            ctx.fill();
+            ctx.closePath();
+        });
+    }
+
+    function updatePlayerPosition() {
+        player.dx = 0;
+        player.dy = 0;
+
+        if (keys.w) player.dy = -player.speed;
+        if (keys.s) player.dy = player.speed;
+        if (keys.a) player.dx = -player.speed;
+        if (keys.d) player.dx = player.speed;
+
+        // Move player
+        player.x += player.dx;
+        player.y += player.dy;
+
+        // Wall collision
+        if (player.x + player.radius > canvas.width) {
+            player.x = canvas.width - player.radius;
+        }
+        if (player.x - player.radius < 0) {
+            player.x = player.radius;
+        }
+        if (player.y + player.radius > canvas.height) {
+            player.y = canvas.height - player.radius;
+        }
+        if (player.y - player.radius < 0) {
+            player.y = player.radius;
+        }
+    }
+
+    function spawnEnemy() {
+        const position = Math.floor(Math.random() * 4); // 0: top, 1: right, 2: bottom, 3: left
+        let x, y, dx, dy;
+
+        switch (position) {
+            case 0: // top
+                x = Math.random() * canvas.width;
+                y = 0 - enemyRadius;
+                break;
+            case 1: // right
+                x = canvas.width + enemyRadius;
+                y = Math.random() * canvas.height;
+                break;
+            case 2: // bottom
+                x = Math.random() * canvas.width;
+                y = canvas.height + enemyRadius;
+                break;
+            case 3: // left
+                x = 0 - enemyRadius;
+                y = Math.random() * canvas.height;
+                break;
+        }
+        
+        const angle = Math.atan2(player.y - y, player.x - x);
+        dx = Math.cos(angle) * enemySpeed;
+        dy = Math.sin(angle) * enemySpeed;
+
+
+        enemies.push({ x, y, radius: enemyRadius, dx, dy });
+    }
+
+    function updateEnemies() {
+        enemies.forEach((enemy, index) => {
+            enemy.x += enemy.dx;
+            enemy.y += enemy.dy;
+
+            // Remove enemies that are way off screen
+            if (enemy.x < -50 || enemy.x > canvas.width + 50 || enemy.y < -50 || enemy.y > canvas.height + 50) {
+                enemies.splice(index, 1);
+            }
+        });
+    }
+
+    function checkCollision() {
+        enemies.forEach(enemy => {
+            const dist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+            if (dist - enemy.radius - player.radius < 1) {
+                gameOver();
+            }
+        });
+    }
+    
+    function gameOver() {
+        isGameOver = true;
+        const survivalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+        survivalTimeSpan.textContent = survivalTime;
+        gameOverScreen.style.display = 'block';
+    }
+
+
+    function update(time) {
+        if (isGameOver) return;
+
+        const elapsedTime = (Date.now() - startTime) / 1000;
+
+        // Increase difficulty
+        if (elapsedTime > 20) {
+            enemySpawnInterval = 250; // Much faster
+        } else {
+            enemySpawnInterval = Math.max(300, 1000 - elapsedTime * 35);
+        }
+
+
+        if (time - lastSpawnTime > enemySpawnInterval) {
+             const numToSpawn = elapsedTime > 20 ? 2 : 1;
+             for(let i = 0; i < numToSpawn; i++) {
+                spawnEnemy();
+             }
+            lastSpawnTime = time;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        drawPlayer();
+        updatePlayerPosition();
+
+        drawEnemies();
+        updateEnemies();
+
+        checkCollision();
+        
+        // Draw timer
+        ctx.fillStyle = 'white';
+        ctx.font = '20px Arial';
+        ctx.fillText(`Time: ${elapsedTime.toFixed(2)}`, 10, 30);
+
+
+        requestAnimationFrame(update);
+    }
+
+    function handleKeyDown(e) {
+        if (keys.hasOwnProperty(e.key)) {
+            keys[e.key] = true;
+        }
+    }
+
+    function handleKeyUp(e) {
+        if (keys.hasOwnProperty(e.key)) {
+            keys[e.key] = false;
+        }
+    }
+    
+    function startGame() {
+        isGameOver = false;
+        player.x = canvas.width / 2;
+        player.y = canvas.height / 2;
+        enemies = [];
+        startTime = Date.now();
+        lastSpawnTime = 0;
+        enemySpawnInterval = 1000;
+        gameOverScreen.style.display = 'none';
+        document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('keyup', handleKeyUp);
+        update(0);
+    }
+
+
+    restartButton.addEventListener('click', startGame);
+
+    // Initial Start
+    startGame();
+
+</script>
+
+</body>
+</html>

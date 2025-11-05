@@ -1,1 +1,116 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>보이넥스트도어 멤버 소개</title>
+    <style>
+        body {
+            background-color: skyblue;
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 20px;
+        }
+        h1 {
+            color: white;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            max-width: 800px;
+        }
+        .member-block {
+            background-color: white;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .member-block:hover {
+            transform: scale(1.05);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>보이넥스트도어 멤버 소개</h1>
+
+    <div class="container">
+        <div class="member-block" data-info="이름: 성호 (SUNGHO)<br>생년월일: 2003년 9월 4일<br>포지션: 메인 보컬">박성호</div>
+        <div class="member-block" data-info="이름: 리우 (RIWOO)<br>생년월일: 2003년 10월 22일<br>포지션: 메인 댄서">이리우</div>
+        <div class="member-block" data-info="이름: 명재현 (JAEHYUN)<br>생년월일: 2003년 12월 4일<br>포지션: 리더, 메인 래퍼">명재현</div>
+        <div class="member-block" data-info="이름: 태산 (TAESAN)<br>생년월일: 2004년 8월 10일<br>포지션: 래퍼, 보컬">한태산</div>
+        <div class="member-block" data-info="이름: 이한 (LEEHAN)<br>생년월일: 2004년 10월 20일<br>포지션: 보컬">이한</div>
+        <div class="member-block" data-info="이름: 운학 (WOONHAK)<br>생년월일: 2006년 11월 29일<br>포지션: 보컬, 막내">운학</div>
+    </div>
+
+    <div id="myModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <p id="modal-text"></p>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById("myModal");
+        const modalText = document.getElementById("modal-text");
+        const memberBlocks = document.querySelectorAll(".member-block");
+        const span = document.getElementsByClassName("close")[0];
+
+        memberBlocks.forEach(block => {
+            block.addEventListener("click", function() {
+                const info = this.getAttribute("data-info");
+                modalText.innerHTML = info;
+                modal.style.display = "flex";
+            });
+        });
+
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+    </script>
+
+</body>
+</html>

@@ -1,1 +1,309 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html>
+<head>
+<title>rpg</title>
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+    }
+    #game-container {
+        width: 100vw;
+        height: 100vh;
+        background-color: skyblue;
+        position: relative;
+    }
+    #ground {
+        position: absolute;
+        bottom: 0;
+        width: 100%;
+        height: 33.33%;
+        background-color: brown;
+    }
+    #grass {
+        position: absolute;
+        bottom: 33.33%;
+        width: 100%;
+        height: 20px;
+        background-color: green;
+    }
+    #player {
+        position: absolute;
+        width: 50px;
+        height: 50px;
+        background-color: blue; /* Placeholder for character */
+        left: 50%;
+        bottom: calc(33.33% + 20px);
+    }
+    #player-sword {
+        position: absolute;
+        width: 50px;
+        height: 5px;
+        background-color: silver;
+        top: 22.5px;
+        left: 50px;
+        display: none;
+    }
+    #slime {
+        position: absolute;
+        width: 50px;
+        height: 50px;
+        background-color: lightgreen; /* Placeholder for slime */
+        border-radius: 50%;
+        bottom: calc(33.33% + 20px);
+        left: 70%;
+    }
+    .slime-eye {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background-color: white;
+        border-radius: 50%;
+        top: 15px;
+    }
+    #slime-eye-1 {
+        left: 15px;
+    }
+    #slime-eye-2 {
+        right: 15px;
+    }
+    .slime-pupil {
+        position: absolute;
+        width: 5px;
+        height: 5px;
+        background-color: black;
+        border-radius: 50%;
+        top: 2.5px;
+        left: 2.5px;
+    }
+    .projectile {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        background-color: red;
+        border-radius: 50%;
+    }
+    .health-bar {
+        position: absolute;
+        top: 10px;
+        padding: 10px;
+        background-color: rgba(0,0,0,0.5);
+        color: white;
+        font-family: sans-serif;
+    }
+    #player-health {
+        left: 10px;
+    }
+    #slime-health {
+        right: 10px;
+    }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="ground"></div>
+    <div id="grass"></div>
+    <div id="player">
+        <div id="player-sword"></div>
+    </div>
+    <div id="slime">
+        <div id="slime-eye-1" class="slime-eye"><div class="slime-pupil"></div></div>
+        <div id="slime-eye-2" class="slime-eye"><div class="slime-pupil"></div></div>
+    </div>
+    <div id="player-health">Player HP: 100</div>
+    <div id="slime-health">Slime HP: 50</div>
+</div>
+
+<script>
+    const player = document.getElementById('player');
+    const playerSword = document.getElementById('player-sword');
+    const slime = document.getElementById('slime');
+    const gameContainer = document.getElementById('game-container');
+    const playerHealthDisplay = document.getElementById('player-health');
+    const slimeHealthDisplay = document.getElementById('slime-health');
+
+    let playerHealth = 100;
+    let slimeHealth = 50;
+
+    let playerX = window.innerWidth / 2;
+    let playerY = 0;
+    let playerVelocityY = 0;
+    const gravity = 0.5;
+    const jumpPower = 12;
+    let canJump = true;
+    let isInvincible = false;
+
+    let slimeX = window.innerWidth * 0.7;
+    let slimeDirection = -1;
+    const slimeSpeed = 2;
+
+    const keys = {};
+
+    document.addEventListener('keydown', (e) => {
+        keys[e.key.toLowerCase()] = true;
+        if (e.key === ' ') { // Space bar
+            e.preventDefault();
+            if (!isInvincible) {
+                isInvincible = true;
+                player.style.opacity = '0.5';
+                setTimeout(() => {
+                    isInvincible = false;
+                    player.style.opacity = '1';
+                }, 200);
+            }
+        }
+    });
+
+    document.addEventListener('keyup', (e) => {
+        keys[e.key.toLowerCase()] = false;
+    });
+
+    function attack() {
+        playerSword.style.display = 'block';
+        setTimeout(() => {
+            playerSword.style.display = 'none';
+        }, 200);
+
+        // Check for collision with slime
+        const playerRect = player.getBoundingClientRect();
+        const slimeRect = slime.getBoundingClientRect();
+        const swordRect = playerSword.getBoundingClientRect();
+
+        if (
+            swordRect.left < slimeRect.right &&
+            swordRect.right > slimeRect.left &&
+            swordRect.top < slimeRect.bottom &&
+            swordRect.bottom > slimeRect.top
+        ) {
+            updateSlimeHealth(5);
+        }
+    }
+
+    function updatePlayerHealth(damage) {
+        if (isInvincible) return;
+        playerHealth -= damage;
+        if (playerHealth < 0) playerHealth = 0;
+        playerHealthDisplay.textContent = `Player HP: ${playerHealth}`;
+        if (playerHealth <= 0) {
+            alert('Game Over!');
+            resetGame();
+        }
+    }
+
+    function updateSlimeHealth(damage) {
+        slimeHealth -= damage;
+        if (slimeHealth < 0) slimeHealth = 0;
+        slimeHealthDisplay.textContent = `Slime HP: ${slimeHealth}`;
+        if (slimeHealth <= 0) {
+            alert('You Win!');
+            resetGame();
+        }
+    }
+    
+    function resetGame() {
+        playerHealth = 100;
+        slimeHealth = 50;
+        playerX = window.innerWidth / 2;
+        slimeX = window.innerWidth * 0.7;
+        playerHealthDisplay.textContent = `Player HP: ${playerHealth}`;
+        slimeHealthDisplay.textContent = `Slime HP: ${slimeHealth}`;
+        // Remove all projectiles
+        document.querySelectorAll('.projectile').forEach(p => p.remove());
+    }
+
+
+    function gameLoop() {
+        // Player movement
+        if (keys['a']) {
+            playerX -= 5;
+        }
+        if (keys['d']) {
+            playerX += 5;
+        }
+        if (keys['w'] && canJump) {
+            playerVelocityY = -jumpPower;
+            canJump = false;
+        }
+        if (keys['e']) {
+            attack();
+        }
+
+        // Apply gravity
+        playerVelocityY += gravity;
+        playerY += playerVelocityY;
+
+        // Ground collision
+        const groundLevel = window.innerHeight * (1/3) + 20;
+        if (player.offsetTop + player.offsetHeight + playerVelocityY >= window.innerHeight - groundLevel + 85) {
+            playerVelocityY = 0;
+            player.style.bottom = `calc(33.33% + 20px)`;
+            canJump = true;
+        } else {
+             player.style.bottom = `${parseInt(player.style.bottom) - playerVelocityY}px`;
+        }
+
+
+        player.style.left = `${playerX}px`;
+
+        // Slime movement
+        slimeX += slimeSpeed * slimeDirection;
+        if (slimeX < 0 || slimeX > window.innerWidth - slime.offsetWidth) {
+            slimeDirection *= -1;
+        }
+        slime.style.left = `${slimeX}px`;
+        
+        // Slime collision with player
+        const playerRect = player.getBoundingClientRect();
+        const slimeRect = slime.getBoundingClientRect();
+        if (
+            playerRect.left < slimeRect.right &&
+            playerRect.right > slimeRect.left &&
+            playerRect.top < slimeRect.bottom &&
+            playerRect.bottom > slimeRect.top
+        ) {
+            updatePlayerHealth(10);
+        }
+
+
+        // Slime attack
+        if (Math.random() < 0.02) { // Chance to shoot
+            const projectile = document.createElement('div');
+            projectile.className = 'projectile';
+            projectile.style.left = `${slimeX + 20}px`;
+            projectile.style.bottom = `calc(33.33% + 45px)`;
+            gameContainer.appendChild(projectile);
+
+            let projectileInterval = setInterval(() => {
+                const pRect = projectile.getBoundingClientRect();
+                const playerRect = player.getBoundingClientRect();
+
+                projectile.style.left = `${parseInt(projectile.style.left) - 5}px`;
+
+                if (
+                    pRect.left < playerRect.right &&
+                    pRect.right > playerRect.left &&
+                    pRect.top < playerRect.bottom &&
+                    pRect.bottom > playerRect.top
+                ) {
+                    updatePlayerHealth(5);
+                    projectile.remove();
+                    clearInterval(projectileInterval);
+                }
+
+                if (pRect.left < 0) {
+                    projectile.remove();
+                    clearInterval(projectileInterval);
+                }
+            }, 20);
+        }
+
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+
+</script>
+</body>
+</html>

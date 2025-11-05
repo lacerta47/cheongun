@@ -1,1 +1,285 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>그림판</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #toolbar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        #toolbar button, #controls button, #layers button, #clear-all {
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        #color-palette {
+            position: absolute;
+            top: 20px;
+            left: 80px;
+            display: flex;
+            flex-direction: column;
+        }
+        .color-box {
+            width: 30px;
+            height: 30px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            border: 1px solid #fff;
+        }
+        #main-content {
+            display: flex;
+            align-items: center;
+        }
+        #canvas-container {
+            position: relative;
+            border: 2px solid #333;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+        #layers {
+            position: absolute;
+            top: 100px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        .layer-preview {
+            width: 50px;
+            height: 50px;
+            border: 1px solid #ccc;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+        .active-layer {
+            border: 2px solid blue;
+        }
+        #clear-all {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="toolbar">
+        <button id="pencil-btn">✏️</button>
+        <button id="eraser-btn">🧼</button>
+    </div>
+
+    <div id="color-palette"></div>
+
+    <div id="main-content">
+        <div id="canvas-container">
+            <canvas id="canvas-bg" width="600" height="400"></canvas>
+        </div>
+    </div>
+
+    <div id="controls">
+        <button id="undo-btn">⬅️</button>
+        <button id="redo-btn">➡️</button>
+    </div>
+
+    <div id="layers">
+        <button id="add-layer-btn">Add Layer</button>
+        <div id="layer-list"></div>
+    </div>
+
+    <button id="clear-all">전부 삭제하기</button>
+
+    <script>
+        const canvasContainer = document.getElementById('canvas-container');
+        const bgCanvas = document.getElementById('canvas-bg');
+        const bgCtx = bgCanvas.getContext('2d');
+        bgCtx.fillStyle = 'white';
+        bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+        const pencilBtn = document.getElementById('pencil-btn');
+        const eraserBtn = document.getElementById('eraser-btn');
+        const undoBtn = document.getElementById('undo-btn');
+        const redoBtn = document.getElementById('redo-btn');
+        const clearAllBtn = document.getElementById('clear-all');
+        const addLayerBtn = document.getElementById('add-layer-btn');
+        const layerList = document.getElementById('layer-list');
+        const colorPalette = document.getElementById('color-palette');
+
+        let isDrawing = false;
+        let currentColor = 'black';
+        let currentTool = 'pencil';
+        let layers = [];
+        let activeLayerIndex = -1;
+        let history = [];
+        let historyIndex = -1;
+
+        const colors = ['black', 'red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet', 'white'];
+
+        function setupColorPalette() {
+            colors.forEach(color => {
+                const colorBox = document.createElement('div');
+                colorBox.className = 'color-box';
+                colorBox.style.backgroundColor = color;
+                colorBox.addEventListener('click', () => {
+                    currentColor = color;
+                    currentTool = 'pencil';
+                });
+                colorPalette.appendChild(colorBox);
+            });
+        }
+
+        function addNewLayer() {
+            const newCanvas = document.createElement('canvas');
+            newCanvas.width = 600;
+            newCanvas.height = 400;
+            canvasContainer.appendChild(newCanvas);
+            const newCtx = newCanvas.getContext('2d');
+            layers.push({ canvas: newCanvas, ctx: newCtx });
+            activeLayerIndex = layers.length - 1;
+            updateLayerPreviews();
+            saveState();
+        }
+
+        function updateLayerPreviews() {
+            layerList.innerHTML = '';
+            layers.forEach((layer, index) => {
+                const preview = document.createElement('div');
+                preview.className = 'layer-preview';
+                if (index === activeLayerIndex) {
+                    preview.classList.add('active-layer');
+                }
+                preview.style.backgroundImage = `url(${layer.canvas.toDataURL()})`;
+                preview.style.backgroundSize = 'contain';
+                preview.addEventListener('click', () => {
+                    activeLayerIndex = index;
+                    updateLayerPreviews();
+                });
+                layerList.appendChild(preview);
+            });
+        }
+        
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            };
+        }
+
+        function draw(e) {
+            if (!isDrawing || activeLayerIndex === -1) return;
+            const pos = getMousePos(layers[activeLayerIndex].canvas, e);
+            const ctx = layers[activeLayerIndex].ctx;
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = currentTool === 'eraser' ? 'white' : currentColor;
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+
+        function saveState() {
+            if (historyIndex < history.length - 1) {
+                history = history.slice(0, historyIndex + 1);
+            }
+            const currentState = layers.map(l => l.canvas.toDataURL());
+            history.push(currentState);
+            historyIndex++;
+            updateLayerPreviews();
+        }
+
+        function restoreState(state) {
+            state.forEach((dataURL, index) => {
+                if (!layers[index]) {
+                    addNewLayer();
+                }
+                const img = new Image();
+                img.onload = () => {
+                    layers[index].ctx.clearRect(0, 0, layers[index].canvas.width, layers[index].canvas.height);
+                    layers[index].ctx.drawImage(img, 0, 0);
+                    updateLayerPreviews();
+                };
+                img.src = dataURL;
+            });
+        }
+        
+        pencilBtn.addEventListener('click', () => currentTool = 'pencil');
+        eraserBtn.addEventListener('click', () => currentTool = 'eraser');
+
+        canvasContainer.addEventListener('mousedown', (e) => {
+            if (activeLayerIndex === -1) return;
+            isDrawing = true;
+            const pos = getMousePos(layers[activeLayerIndex].canvas, e);
+            layers[activeLayerIndex].ctx.beginPath();
+            layers[activeLayerIndex].ctx.moveTo(pos.x, pos.y);
+        });
+
+        canvasContainer.addEventListener('mouseup', () => {
+            if (isDrawing) {
+                isDrawing = false;
+                saveState();
+            }
+        });
+        
+        canvasContainer.addEventListener('mousemove', draw);
+        canvasContainer.addEventListener('mouseleave', () => {
+            if (isDrawing) {
+                 isDrawing = false;
+                 saveState();
+            }
+        });
+
+        addLayerBtn.addEventListener('click', addNewLayer);
+
+        clearAllBtn.addEventListener('click', () => {
+            if (activeLayerIndex !== -1) {
+                const ctx = layers[activeLayerIndex].ctx;
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                saveState();
+            }
+        });
+
+        undoBtn.addEventListener('click', () => {
+            if (historyIndex > 0) {
+                historyIndex--;
+                restoreState(history[historyIndex]);
+            }
+        });
+
+f
+        redoBtn.addEventListener('click', () => {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                restoreState(history[historyIndex]);
+            }
+        });
+
+        // Initialize
+        setupColorPalette();
+        addNewLayer();
+    </script>
+</body>
+</html>

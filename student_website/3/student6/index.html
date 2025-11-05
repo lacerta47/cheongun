@@ -1,1 +1,333 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>집안 3D 게임</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: #333;
+            font-family: sans-serif;
+        }
+
+        #container {
+            width: 100%;
+            height: 100%;
+            perspective: 1000px;
+            perspective-origin: 50% 50%;
+            cursor: grab;
+        }
+
+        #world {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            transform-style: preserve-3d;
+            transform: translateZ(-500px) rotateX(0deg) rotateY(0deg);
+        }
+
+        .room-surface {
+            position: absolute;
+            background: #A9A9A9; /* DarkGray */
+            border: 1px solid #555;
+            box-sizing: border-box;
+        }
+
+        /* Floor */
+        #floor {
+            width: 1000px;
+            height: 1000px;
+            background: #8B4513; /* SaddleBrown */
+            transform: rotateX(90deg) translateZ(-500px);
+            left: -500px;
+            top: 0;
+        }
+
+        /* Ceiling */
+        #ceiling {
+            width: 1000px;
+            height: 1000px;
+            background: #D3D3D3; /* LightGray */
+            transform: rotateX(-90deg) translateZ(-500px);
+            left: -500px;
+            top: 0;
+        }
+
+        /* Back Wall */
+        #back-wall {
+            width: 1000px;
+            height: 500px;
+            background: #B0C4DE; /* LightSteelBlue */
+            transform: translateZ(-500px);
+            left: -500px;
+            top: -250px;
+        }
+
+        /* Front Wall (behind camera, not visible initially) */
+        #front-wall {
+            width: 1000px;
+            height: 500px;
+            background: #B0C4DE;
+            transform: translateZ(500px);
+            left: -500px;
+            top: -250px;
+        }
+
+        /* Left Wall */
+        #left-wall {
+            width: 1000px;
+            height: 500px;
+            background: #ADD8E6; /* LightBlue */
+            transform: rotateY(90deg) translateZ(-500px);
+            left: -500px;
+            top: -250px;
+        }
+
+        /* Right Wall */
+        #right-wall {
+            width: 1000px;
+            height: 500px;
+            background: #ADD8E6;
+            transform: rotateY(-90deg) translateZ(-500px);
+            left: -500px;
+            top: -250px;
+        }
+
+        /* Window on back wall */
+        #window {
+            position: absolute;
+            width: 200px;
+            height: 150px;
+            background: rgba(0, 0, 0, 0.2); /* Transparent glass effect */
+            border: 5px solid #8B4513; /* Wood frame */
+            transform: translateZ(-495px);
+            left: -100px;
+            top: -100px;
+            overflow: hidden;
+        }
+
+        #window-view {
+            position: absolute;
+            width: 400px;
+            height: 300px;
+            background: linear-gradient(to top, #87CEEB, #4682B4); /* Sky gradient */
+            transform: translateZ(-10px) scale(0.5);
+            animation: scrollSky 60s linear infinite;
+        }
+
+        .window-cloud {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            width: 80px;
+            height: 80px;
+            animation: moveWindowCloud 40s linear infinite;
+        }
+        .window-cloud:nth-child(1) { top: 20px; left: 50px; animation-duration: 50s; }
+        .window-cloud:nth-child(2) { top: 80px; left: 150px; animation-duration: 45s; transform: scale(0.7); }
+        .window-cloud:nth-child(3) { top: 40px; left: 250px; animation-duration: 55s; transform: scale(1.1); }
+
+        @keyframes scrollSky {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 100% 100%; }
+        }
+
+        @keyframes moveWindowCloud {
+            0% { transform: translateX(-100px); opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { transform: translateX(400px); opacity: 0.5; }
+        }
+
+        /* Simple objects */
+        .object {
+            position: absolute;
+            background: #696969; /* DimGray */
+            border: 1px solid #444;
+            transform-style: preserve-3d;
+            box-sizing: border-box;
+        }
+
+        #table {
+            width: 200px;
+            height: 80px;
+            background: #A0522D; /* Sienna */
+            transform: translate3d(-100px, 100px, -200px);
+        }
+        #chair {
+            width: 80px;
+            height: 100px;
+            background: #D2B48C; /* Tan */
+            transform: translate3d(150px, 100px, -150px);
+        }
+        #dog {
+            width: 60px;
+            height: 40px;
+            background: #8B4513; /* SaddleBrown */
+            border-radius: 50%;
+            transform: translate3d(0px, 140px, -100px);
+        }
+
+        #player-character {
+            position: absolute;
+            width: 40px;
+            height: 80px;
+            left: 50%;
+            top: 50%;
+            margin-left: -20px;
+            margin-top: -40px;
+            transform-style: preserve-3d;
+            transform: translateZ(0px);
+        }
+
+        .player-face {
+            position: absolute;
+            background: rgba(0, 128, 0, 0.8); /* Green */
+            border: 1px solid #000;
+        }
+        .player-front  { transform: translateZ(20px); width: 40px; height: 80px; }
+        .player-back   { transform: rotateY(180deg) translateZ(20px); width: 40px; height: 80px; }
+        .player-left   { transform: rotateY(-90deg) translateZ(20px); width: 40px; height: 80px; left: 0; }
+        .player-right  { transform: rotateY(90deg) translateZ(20px); width: 40px; height: 80px; left: 0; }
+        .player-top    { transform: rotateX(90deg) translateZ(40px); width: 40px; height: 40px; top: -20px; }
+        .player-bottom { transform: rotateX(-90deg) translateZ(40px); width: 40px; height: 40px; top: 60px; }
+
+        #controls-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-family: sans-serif;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <div id="world">
+            <!-- Room elements -->
+            <div id="floor" class="room-surface"></div>
+            <div id="ceiling" class="room-surface"></div>
+            <div id="back-wall" class="room-surface">
+                <div id="window">
+                    <div id="window-view">
+                        <div class="window-cloud"></div>
+                        <div class="window-cloud"></div>
+                        <div class="window-cloud"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="front-wall" class="room-surface"></div>
+            <div id="left-wall" class="room-surface"></div>
+            <div id="right-wall" class="room-surface"></div>
+
+            <!-- Objects -->
+            <div id="table" class="object"></div>
+            <div id="chair" class="object"></div>
+            <div id="dog" class="object"></div>
+
+            <!-- Player character (fixed in center, world moves around it) -->
+            <div id="player-character">
+                <div class="player-face player-front"></div>
+                <div class="player-face player-back"></div>
+                <div class="player-face player-left"></div>
+                <div class="player-face player-right"></div>
+                <div class="player-face player-top"></div>
+                <div class="player-face player-bottom"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="controls-info">
+        <b>조작:</b> W, A, S, D (이동), 마우스 (화면 회전)
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const world = document.getElementById('world');
+        
+        let worldX = 0;
+        let worldY = 0;
+        let worldZ = -500; // Initial Z position from CSS
+        let worldRotX = 0; 
+        let worldRotY = 0;
+
+        const moveSpeed = 20;
+        const rotationSpeed = 0.2; // Mouse rotation speed
+
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        function updateWorldTransform() {
+            world.style.transform = 
+                `translateZ(${worldZ}px) ` +
+                `translateX(${worldX}px) ` +
+                `translateY(${worldY}px) ` +
+                `rotateX(${worldRotX}deg) ` +
+                `rotateY(${worldRotY}deg)`;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            const key = e.key.toLowerCase();
+            
+            // Calculate movement direction based on current Y rotation
+            const angleRad = worldRotY * (Math.PI / 180);
+            const sinAngle = Math.sin(angleRad);
+            const cosAngle = Math.cos(angleRad);
+
+            if (key === 'w') { // Forward
+                worldX -= sinAngle * moveSpeed;
+                worldZ += cosAngle * moveSpeed;
+            } else if (key === 's') { // Backward
+                worldX += sinAngle * moveSpeed;
+                worldZ -= cosAngle * moveSpeed;
+            } else if (key === 'a') { // Strafe Left
+                worldX += cosAngle * moveSpeed;
+                worldZ += sinAngle * moveSpeed;
+            } else if (key === 'd') { // Strafe Right
+                worldX -= cosAngle * moveSpeed;
+                worldZ -= sinAngle * moveSpeed;
+            }
+            updateWorldTransform();
+        });
+
+        container.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            container.style.cursor = 'grabbing';
+        });
+
+        container.addEventListener('mouseup', () => {
+            isDragging = false;
+            container.style.cursor = 'grab';
+        });
+
+        container.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const deltaX = e.clientX - lastMouseX;
+            const deltaY = e.clientY - lastMouseY;
+
+            worldRotY += deltaX * rotationSpeed;
+            worldRotX -= deltaY * rotationSpeed; // Invert for natural mouse look
+
+            // Limit vertical rotation to prevent flipping
+            worldRotX = Math.max(-90, Math.min(90, worldRotX));
+
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            updateWorldTransform();
+        });
+
+    </script>
+</body>
+</html>

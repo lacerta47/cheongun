@@ -1,1 +1,307 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>엄마 몰래 새벽에 라면 끓이기</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #333;
+            color: white;
+        }
+        #game-container {
+            width: 800px;
+            height: 600px;
+            border: 2px solid white;
+            position: relative;
+            background-color: #555;
+        }
+        .room {
+            position: absolute;
+            border: 1px solid #aaa;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+        }
+        #kitchen { top: 0; left: 0; width: 40%; height: 50%; background-color: #6d6d6d; }
+        #living-room { top: 0; left: 40%; width: 60%; height: 60%; background-color: #5a5a5a; }
+        #my-room { top: 50%; left: 0; width: 40%; height: 50%; background-color: #5f5f5f; }
+        #mom-room { top: 60%; left: 40%; width: 30%; height: 40%; background-color: #505050; }
+        #hallway { top: 60%; left: 70%; width: 30%; height: 40%; background-color: #4a4a4a; }
+        
+        #player, #mom {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            font-size: 30px;
+            transition: top 0.5s, left 0.5s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #player { content: '👧'; }
+        #mom { content: '👨‍🦲'; }
+
+        .item {
+            position: absolute;
+            font-size: 25px;
+            cursor: pointer;
+        }
+        #item-pot { top: 5%; left: 35%; } /* 주방 */
+        #item-water { top: 55%; left: 85%; } /* 거실 */
+        #item-ramen { top: 80%; left: 10%; } /* 내 방 */
+        #item-soup { top: 80%; left: 80%; } /* 복도 */
+
+        #game-info {
+            width: 800px;
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        #inventory, #status, #lives {
+            background-color: #444;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #start-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 30px;
+            padding: 20px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            border: none;
+            border-radius: 10px;
+            color: white;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+<h1>엄마 몰래 새벽에 라면 끓이기</h1>
+
+<div id="game-container">
+    <div id="kitchen" class="room" data-name="주방">주방</div>
+    <div id="living-room" class="room" data-name="거실">거실</div>
+    <div id="my-room" class="room" data-name="내 방">내 방</div>
+    <div id="mom-room" class="room" data-name="안방">안방</div>
+    <div id="hallway" class="room" data-name="복도">복도</div>
+
+    <div id="player">👧</div>
+    <div id="mom" style="display: none;">👨‍🦲</div>
+
+    <div id="item-pot" class="item" data-item="냄비">냄비</div>
+    <div id="item-water" class="item" data-item="물">물</div>
+    <div id="item-ramen" class="item" data-item="면">면</div>
+    <div id="item-soup" class="item" data-item="스프">스프</div>
+    
+    <button id="start-btn">게임 시작</button>
+</div>
+
+<div id="game-info">
+    <div id="inventory"><strong>가방:</strong> </div>
+    <div id="status">엄마가 곧 나올 수 있어요...</div>
+    <div id="lives"><strong>생명:</strong> ❤️❤️❤️</div>
+</div>
+
+<script>
+    const player = document.getElementById('player');
+    const mom = document.getElementById('mom');
+    const rooms = document.querySelectorAll('.room');
+    const items = document.querySelectorAll('.item');
+    const startBtn = document.getElementById('start-btn');
+
+    const statusEl = document.getElementById('status');
+    const livesEl = document.getElementById('lives');
+    const inventoryEl = document.getElementById('inventory');
+
+    const roomPositions = {
+        '주방': { top: '25%', left: '20%' },
+        '거실': { top: '30%', left: '70%' },
+        '내 방': { top: '75%', left: '20%' },
+        '안방': { top: '80%', left: '55%' },
+        '복도': { top: '80%', left: '85%' }
+    };
+
+    let playerPos = '내 방';
+    let momPos = '안방';
+    let lives = 3;
+    let inventory = [];
+    let momIsOut = false;
+    let momTimer;
+    let gameRunning = false;
+
+    startBtn.addEventListener('click', startGame);
+
+    function startGame() {
+        gameRunning = true;
+        startBtn.style.display = 'none';
+        playerPos = '내 방';
+        momPos = '안방';
+        lives = 3;
+        inventory = [];
+        momIsOut = false;
+        
+        updatePlayerPos();
+        updateUI();
+        resetItems();
+
+        momTimer = setInterval(momCycle, 1000); // 엄마 타이머 시작
+        statusEl.textContent = "조용히 움직이세요...";
+    }
+
+    function momCycle() {
+        if (!gameRunning) return;
+
+        if (momIsOut) {
+            // 엄마가 밖을 순찰함 (30초)
+            statusEl.textContent = "엄마가 밖을 보고 있습니다!";
+            mom.style.display = 'block';
+            
+            // 랜덤하게 거실이나 주방으로 이동
+            const patrolSpot = Math.random() < 0.5 ? '거실' : '주방';
+            momPos = patrolSpot;
+            const pos = roomPositions[momPos];
+            mom.style.top = pos.top;
+            mom.style.left = pos.left;
+
+            checkCaught();
+
+            setTimeout(() => {
+                momIsOut = false;
+                mom.style.display = 'none';
+                momPos = '안방';
+                statusEl.textContent = "엄마가 들어갔습니다! (60초)";
+            }, 15000); // 실제 게임에서는 30초, 테스트를 위해 15초
+        } else {
+            // 엄마가 방에 있음 (60초)
+            setTimeout(() => {
+                momIsOut = true;
+            }, 30000); // 실제 게임에서는 60초, 테스트를 위해 30초
+        }
+    }
+
+    rooms.forEach(room => {
+        room.addEventListener('click', () => {
+            if (!gameRunning || momIsOut) {
+                if(momIsOut) statusEl.textContent = "엄마가 나와있을 땐 움직일 수 없어요!";
+                return;
+            };
+            playerPos = room.dataset.name;
+            updatePlayerPos();
+            checkCaught();
+        });
+    });
+
+    items.forEach(item => {
+        item.addEventListener('click', (e) => {
+            if (!gameRunning || momIsOut) return;
+            const itemName = e.target.dataset.item;
+            const itemRoom = e.target.parentElement.querySelector('.room[data-name]').dataset.name;
+            
+            // 아이템이 있는 방과 플레이어의 방이 같아야 획득 가능
+            let playerRoomName = '';
+            for(const room of rooms){
+                const rect = room.getBoundingClientRect();
+                const playerRect = player.getBoundingClientRect();
+                if(playerRect.top > rect.top && playerRect.left > rect.left && playerRect.bottom < rect.bottom && playerRect.right < rect.right){
+                    playerRoomName = room.dataset.name;
+                    break;
+                }
+            }
+
+            if (playerPos === getRoomFromItem(e.target)) {
+                if (!inventory.includes(itemName)) {
+                    inventory.push(itemName);
+                    e.target.style.display = 'none';
+                    updateUI();
+                    checkWinCondition();
+                }
+            } else {
+                statusEl.textContent = "아이템이 있는 방으로 가야 해요!";
+            }
+        });
+    });
+    
+    function getRoomFromItem(itemElement) {
+        if (itemElement.id === 'item-pot') return '주방';
+        if (itemElement.id === 'item-water') return '거실';
+        if (itemElement.id === 'item-ramen') return '내 방';
+        if (itemElement.id === 'item-soup') return '복도';
+        return null;
+    }
+
+
+    function updatePlayerPos() {
+        const pos = roomPositions[playerPos];
+        player.style.top = pos.top;
+        player.style.left = pos.left;
+    }
+
+    function checkCaught() {
+        if (momIsOut && playerPos === momPos) {
+            lives--;
+            updateUI();
+            if (lives <= 0) {
+                gameOver(false);
+            } else {
+                statusEl.textContent = `엄마에게 들켰어요! 생명이 ${lives}개 남았습니다.`;
+                // 들키면 엄마는 바로 방으로 돌아감
+                momIsOut = false;
+                mom.style.display = 'none';
+                momPos = '안방';
+            }
+        }
+    }
+
+    function checkWinCondition() {
+        if (inventory.length === 4) {
+            if (playerPos === '주방') {
+                statusEl.textContent = "재료를 다 모았다! 라면을 끓입니다... (10초)";
+                setTimeout(() => {
+                    if(lives > 0) gameOver(true);
+                }, 10000); // 10초 후 승리
+            } else {
+                statusEl.textContent = "재료를 다 모았어요! 주방으로 가세요!";
+            }
+        }
+    }
+    
+    function resetItems() {
+        items.forEach(item => item.style.display = 'block');
+    }
+
+    function gameOver(isWin) {
+        gameRunning = false;
+        clearInterval(momTimer);
+        if (isWin) {
+            statusEl.textContent = "라면 끓이기 성공! 맛있게 드세요!";
+            player.textContent = '🍜';
+        } else {
+            statusEl.textContent = "엄마에게 걸렸습니다... 게임 오버!";
+            player.textContent = '😭';
+        }
+        startBtn.textContent = "다시 시작";
+        startBtn.style.display = 'block';
+    }
+
+    function updateUI() {
+        livesEl.innerHTML = `<strong>생명:</strong> ${'❤️'.repeat(lives)}`;
+        inventoryEl.innerHTML = `<strong>가방:</strong> ${inventory.join(', ')}`;
+    }
+
+</script>
+</body>
+</html>

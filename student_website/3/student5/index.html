@@ -1,1 +1,116 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>웃음 게임</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: #f0f0f0;
+            font-family: 'Comic Sans MS', 'Chalkboard SE', 'Marker Felt', sans-serif;
+            cursor: crosshair;
+        }
+
+        #container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .laugh-char {
+            position: absolute;
+            font-size: 24px;
+            user-select: none;
+            animation: fadeOut 2s forwards;
+            color: hsl(0, 100%, 50%); /* Start with red */
+        }
+
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
+            to {
+                opacity: 0;
+                transform: scale(0.5) translateY(50px);
+            }
+        }
+
+        #title {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 48px;
+            color: #333;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            animation: bounce 1s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: translateX(-50%) scale(1); }
+            to { transform: translateX(-50%) scale(1.1); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <h1 id="title">ㅋㅋㅋㅋㅋㅋㅋㅋㅋ</h1>
+    </div>
+    
+    <script>
+        const container = document.getElementById('container');
+        let hue = 0;
+
+        function createLaugh(x, y) {
+            const laugh = document.createElement('div');
+            laugh.className = 'laugh-char';
+            laugh.textContent = 'ㅋ';
+            
+            // Position with some randomness
+            const randomX = x + (Math.random() - 0.5) * 40;
+            const randomY = y + (Math.random() - 0.5) * 40;
+            laugh.style.left = randomX + 'px';
+            laugh.style.top = randomY + 'px';
+
+            // Change color over time
+            laugh.style.color = `hsl(${hue}, 100%, 50%)`;
+            hue = (hue + 5) % 360;
+
+            // Random size
+            laugh.style.fontSize = (Math.random() * 24 + 12) + 'px';
+
+            container.appendChild(laugh);
+
+            // Remove from DOM after animation
+            setTimeout(() => {
+                laugh.remove();
+            }, 2000);
+        }
+
+        document.addEventListener('mousemove', (e) => {
+            createLaugh(e.clientX, e.clientY);
+        });
+
+        document.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            for (let i = 0; i < e.touches.length; i++) {
+                createLaugh(e.touches[i].clientX, e.touches[i].clientY);
+            }
+        }, { passive: false });
+
+        // Create some initial laughs
+        setInterval(() => {
+            const x = Math.random() * window.innerWidth;
+            const y = Math.random() * window.innerHeight;
+            createLaugh(x, y);
+        }, 100);
+
+    </script>
+</body>
+</html>

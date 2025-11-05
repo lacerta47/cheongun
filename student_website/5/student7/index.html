@@ -1,1 +1,241 @@
-﻿<!DOCTYPE html><html lang='ko'><head><meta charset='UTF-8'><title>학생 페이지</title><style>body{font-family: sans-serif; text-align: center; padding-top: 50px;}</style></head><body><h1>아직 작품이 없습니다.</h1><p>이곳에 학생의 작품이 표시됩니다.</p></body></html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>그저 그림 그리는 그림판</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        h1 {
+            margin: 20px 0;
+        }
+        .container {
+            /* No longer a flex container */
+        }
+
+        .controls {
+            position: fixed; /* Keep controls visible */
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Center buttons and palette */
+            background-color: rgba(240, 240, 240, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .color-box {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #fff;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .color-box:hover {
+            transform: scale(1.1);
+        }
+        .color-box.active {
+            border-color: #007bff;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            margin-top: 10px;
+        }
+        button.active {
+            background-color: #0056b3;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>그저 그림 그리는 그림판</h1>
+
+    <div class="container">
+        <canvas id="canvas"></canvas>
+        <div class="controls">
+            <div class="color-palette"></div>
+            <button id="eraserBtn">지우개</button>
+            <button id="clearBtn">전부 지우기</button>
+            <button id="undoBtn">전으로 되돌리기</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas dimensions for a large drawing area
+        canvas.width = 2000;
+        canvas.height = 2000;
+
+        const clearBtn = document.getElementById('clearBtn');
+        const undoBtn = document.getElementById('undoBtn');
+        const eraserBtn = document.getElementById('eraserBtn');
+        const colorPaletteContainer = document.querySelector('.color-palette');
+
+        let isDrawing = false;
+        let isErasing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let currentColor = '#000000';
+        let history = [];
+
+        const colors = ['#000000', '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF', '#FFFFFF'];
+
+        // --- Functions for saving and loading ---
+        function saveCanvas() {
+            // Save canvas image to localStorage
+            localStorage.setItem('endlessDrawingPad', canvas.toDataURL());
+        }
+
+        function loadCanvas() {
+            const dataURL = localStorage.getItem('endlessDrawingPad');
+            if (dataURL) {
+                const img = new Image();
+                img.src = dataURL;
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0);
+                    history.push(canvas.toDataURL());
+                };
+            } else {
+                history.push(canvas.toDataURL());
+            }
+        }
+
+        function setActiveColor(colorBox) {
+            // Deactivate eraser
+            isErasing = false;
+            eraserBtn.classList.remove('active');
+            // Deactivate old color
+            const oldActive = document.querySelector('.color-box.active');
+            if (oldActive) {
+                oldActive.classList.remove('active');
+            }
+            // Activate new color
+            colorBox.classList.add('active');
+        }
+
+        // Create color palette
+        colors.forEach(color => {
+            const colorBox = document.createElement('div');
+            colorBox.classList.add('color-box');
+            colorBox.style.backgroundColor = color;
+            if (color === currentColor) {
+                colorBox.classList.add('active');
+            }
+            colorBox.addEventListener('click', () => {
+                currentColor = color;
+                setActiveColor(colorBox);
+            });
+            colorPaletteContainer.appendChild(colorBox);
+        });
+
+        eraserBtn.addEventListener('click', () => {
+            isErasing = true;
+            eraserBtn.classList.add('active');
+            const oldActive = document.querySelector('.color-box.active');
+            if (oldActive) {
+                oldActive.classList.remove('active');
+            }
+        });
+
+        function saveStateForUndo() {
+            if (history.length > 10) { // Limit undo history
+                history.shift();
+            }
+            history.push(canvas.toDataURL());
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            
+            ctx.strokeStyle = isErasing ? '#FFFFFF' : currentColor;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.lineWidth = isErasing ? 50 : 5; // Make eraser bigger
+
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(e.offsetX, e.offsetY);
+            ctx.stroke();
+            [lastX, lastY] = [e.offsetX, e.offsetY];
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true;
+            [lastX, lastY] = [e.offsetX, e.offsetY];
+            saveStateForUndo();
+        });
+
+        canvas.addEventListener('mousemove', draw);
+
+        canvas.addEventListener('mouseup', () => {
+            if (isDrawing) {
+                isDrawing = false;
+                saveCanvas();
+            }
+        });
+
+        canvas.addEventListener('mouseout', () => {
+             if (isDrawing) {
+                isDrawing = false;
+                saveCanvas();
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            saveStateForUndo();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            saveCanvas();
+        });
+
+        undoBtn.addEventListener('click', () => {
+            if (history.length > 1) {
+                history.pop();
+                const lastState = history[history.length - 1];
+                const img = new Image();
+                img.src = lastState;
+                img.onload = () => {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                    saveCanvas();
+                }
+            }
+        });
+
+        fillBtn.addEventListener('click', () => {
+            saveStateForUndo();
+            ctx.fillStyle = currentColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            saveCanvas();
+        });
+
+        // Load the canvas from localStorage when the page loads
+        loadCanvas();
+
+    </script>
+
+</body>
+</html>
